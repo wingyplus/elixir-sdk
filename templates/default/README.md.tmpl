@@ -1,0 +1,31 @@
+# {{ .ModuleType }}
+
+This is a README for your module. Feel free to edit it.
+
+## Quickstart
+
+Once this module is generated, it can run an example from the generated module by:
+
+```console
+$ dagger call container-echo --string-arg=hello stdout
+hello
+```
+
+## The project structure
+
+The module is just a regular Elixir application. The structure looks like:
+
+```text
+.
+├── dagger_sdk
+├── lib
+│   └── {{ .ModulePackage }}.ex
+├── mix.exs
+└── README.md
+```
+
+`lib` is the Elixir source code, and `{{ .ModulePackage }}.ex` is the main Dagger module.
+
+`dagger_sdk` is written by `dagger generate`: it holds the Dagger Elixir SDK together with
+the API bindings generated from your engine's schema. Commit it — the module runtime builds
+from it and does not regenerate it.

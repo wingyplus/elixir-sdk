@@ -1,0 +1,149 @@
+# Image codegen runs in. Kept in step with the same constant in
+# runtime/main.dang by `dagger call -m .dagger/modules/dev sync-image`, which
+# rewrites both files.
+let elixirImage = "elixir:1.19.5-otp-28-alpine@sha256:1747b3595b6742d2273d18608203457d5b925000cd38aca40c76e23c64d44def"
+
+"""
+A Dagger module that uses the Elixir SDK.
+"""
+type Mod {
+  """
+  Workspace-root-relative path of this module root. This stable identity is
+  independent of the client's cwd.
+  """
+  pub rootPath: String!
+
+  """
+  The workspace this module belongs to.
+  """
+  let ws: Workspace!
+
+  """
+  Marker filename that skips generate when found at or above this module root.
+  """
+  let skipGenerateFilename: String!
+
+  """
+  Directory the vendored SDK is written to, relative to the module root.
+  """
+  let genDir: String! = "dagger_sdk"
+
+  """
+  Module root relative to the client's cwd.
+  """
+  pub path: String! {
+    let cwd = ws.cwd.trimPrefix("/").trimSuffix("/")
+    if (rootPath == cwd) {
+      "."
+    } else if (cwd == "") {
+      rootPath
+    } else if (rootPath.trimPrefix(cwd + "/") != rootPath) {
+      rootPath.trimPrefix(cwd + "/")
+    } else if (rootPath == "." or cwd.trimPrefix(rootPath + "/") != cwd) {
+      let depth = if (rootPath == ".") { 0 } else { rootPath.split("/").length }
+      cwd.split("/").dropFirst(depth).map { segment => ".." }.join("/")
+    } else {
+      rootPath
+    }
+  }
+
+  """
+  Whether this module or an ancestor contains the configured generate skip marker.
+  """
+  pub skipGenerate: Boolean! {
+    ws.findUp(name: skipGenerateFilename, from: rootPath) != null
+  }
+
+  """
+  Generate this module: vendor the Elixir SDK and the API bindings generated from
+  the module's schema into `<module>/dagger_sdk`.
+
+  If the generate skip marker is present, the changeset is empty.
+  """
+  pub generate: Changeset! {
+    if (skipGenerate) {
+      polyfill.workspace(ws).fork.changes
+    } else {
+      # Stage this module's local dependency closure first (leaf-first, possibly
+      # across SDKs) so its codegen sees up-to-date dependency bindings. The dep
+      # codegen is ephemeral: it appears in both the before and after of the
+      # changeset below, so it cancels out, leaving only this module's changes.
+      #
+      # rootPath is workspace-root-relative, so anchor it at "/" before passing it
+      # through the cwd-aware polyfill.
+      let stagedWs = ws.withChanges(
+        polyfill.workspace(ws).moduleSource("/" + rootPath).core.generateLocalDependencies(ws),
+      )
+      let modSource = polyfill.workspace(stagedWs).moduleSource("/" + rootPath)
+      let vendored = vendoredSdk(modSource.core.introspectionSchemaJSON)
+
+      let before = if (rootPath == ".") {
+        stagedWs.directory("/", include: ["**"])
+      } else {
+        stagedWs.directory("/", include: [rootPath + "/**"])
+      }
+
+      before
+        .withoutDirectory(joinPath(rootPath, genDir))
+        .withDirectory(joinPath(rootPath, genDir), vendored)
+        .changes(before)
+    }
+  }
+
+  """
+  The Elixir SDK source shipped with this module.
+  """
+  let sdkSourceDir: Directory! { currentModule.source.directory("sdk") }
+
+  """
+  The SDK as it is vendored into a module: just enough to compile against.
+
+  Only the files a consuming module needs are kept — the library sources, the
+  mix project, `.formatter.exs` (so a module's `import_deps: [:dagger]` resolves)
+  and the licence. Everything dev-only stays out: the codegen project (a module
+  never regenerates its own SDK), the test suite, and the changelog history.
+
+  The checked-in bindings are then replaced by ones generated from this module's
+  own schema.
+  """
+  let vendoredSdk(introspectionJSON: File!): Directory! {
+    sdkSourceDir
+      .filter(include: ["LICENSE", "mix.exs", "mix.lock", ".formatter.exs", "lib/**/*.ex"])
+      .withoutDirectory("lib/dagger/gen")
+      .withDirectory("lib/dagger/gen", generatedBindings(introspectionJSON))
+  }
+
+  """
+  Run `mix dagger.codegen` over the module's introspection schema and return the
+  generated API bindings.
+  """
+  let generatedBindings(introspectionJSON: File!): Directory! {
+    container
+      .from(elixirImage)
+      .withExec(["apk", "add", "--no-cache", "git"])
+      .withExec(["mix", "local.hex", "--force"])
+      .withExec(["mix", "local.rebar", "--force"])
+      .withMountedCache("/root/.hex", cacheVolume("elixir-sdk-hex"))
+      .withMountedDirectory("/sdk", sdkSourceDir)
+      .withWorkdir("/sdk/dagger_codegen")
+      .withMountedFile("/schema.json", introspectionJSON)
+      .withExec(["mix", "deps.get"])
+      .withExec([
+        "mix",
+        "dagger.codegen",
+        "generate",
+        "--outdir",
+        "/gen",
+        "--introspection",
+        "/schema.json",
+      ])
+      .directory("/gen")
+  }
+
+  """
+  Join a module path with a sub-path, handling the root (".") module.
+  """
+  let joinPath(modPath: String!, sub: String!): String! {
+    if (modPath == ".") { sub } else { modPath + "/" + sub }
+  }
+}

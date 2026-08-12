@@ -1,0 +1,219 @@
+"""
+Manage Dagger modules that use the Elixir SDK.
+"""
+type ElixirSdk {
+  # Matches `"sdk": { "source": "elixir" }` in a legacy dagger.json.
+  let legacyConfigPattern = "\"sdk\"\\s*:\\s*\\{[^}]*\"source\"\\s*:\\s*\"elixir\""
+
+  # Matches a `[runtime]` table whose source names this SDK's runtime in a CLI
+  # 1.0 dagger-module.toml. Accepts the bare `elixir` name as well as the remote
+  # runtime ref, with or without a version suffix.
+  let tomlConfigPattern = "\\[runtime\\][^\\[]*source\\s*=\\s*\"(elixir|github\\.com/dagger/elixir-sdk/runtime[^\"]*)\""
+
+  """
+  Config filenames that mark a Dagger module root: the CLI 1.0
+  `dagger-module.toml` (workspace-managed modules) and the legacy `dagger.json`.
+  A managed module is discovered by whichever it uses.
+  """
+  let moduleConfigFilenames: [String!]! = ["dagger-module.toml", "dagger.json"]
+
+  """
+  Marker filename that skips generate when found at or above an Elixir SDK module root.
+  """
+  pub skipGenerateFilename: String! = ".dagger-elixir-sdk-skip-generate"
+
+  """
+  Runtime source to write into modules created by this SDK.
+
+  Elixir has no built-in engine runtime, so new modules point at this
+  repository's build-only runtime module.
+  """
+  pub targetRuntime: String! { "github.com/dagger/elixir-sdk/runtime" }
+
+  """
+  Return init templates tracked by this module.
+
+  Templates live under templates/<name> and are materialized into the new
+  module before generation. Passing an empty template to init uses the module
+  default.
+  """
+  pub templates: [Template!]! {
+    if (currentModule.source.exists("templates")) {
+      let root = currentModule.source.directory("templates")
+      root.entries.map { name =>
+        Template(
+          name: name.trimSuffix("/"),
+          source: root.directory(name),
+        )
+      }
+    } else {
+      directory.entries.map { name =>
+        Template(
+          name: name,
+          source: directory,
+        )
+      }
+    }
+  }
+
+  """
+  Return every managed Elixir SDK module visible from the client's cwd: the
+  nearest enclosing module plus modules at or below the cwd. Discovery uses the
+  shared polyfill and intersects its results with the SDK list on the passed
+  workspace.
+  """
+  pub modules(ws: Workspace!): [Mod!]! {
+    let managed = currentModule.asSDK(workspace: ws).modules.{{path}}
+    let cwd = normalizePath(ws.cwd)
+    polyfill.workspace(ws)
+      .findConfigDirs(moduleConfigFilenames, exclude: ["**/_build/**", "**/deps/**"])
+      .map { dir => workspacePath(cwd, dir) }
+      .uniq
+      .filter { path => managed.filter { m => normalizePath(m.path) == path }.length > 0 }
+      .map { path => Mod(rootPath: path, ws: ws, skipGenerateFilename: skipGenerateFilename) }
+  }
+
+  """
+  Return the Elixir SDK module at or above a workspace path.
+
+  When `findUp` is true, `path` may point inside the module.
+  """
+  pub mod(ws: Workspace!, path: String! = ".", findUp: Boolean! = true): Mod! {
+    let modPath = if (findUp) {
+      let foundToml = ws.findUp("dagger-module.toml", path)
+      let foundJson = ws.findUp("dagger.json", path)
+      let tomlBase = if (foundToml == null) { null } else { configDir(foundToml, "dagger-module.toml") }
+      let jsonBase = if (foundJson == null) { null } else { configDir(foundJson, "dagger.json") }
+
+      if (tomlBase == null and jsonBase == null) {
+        raise "no Dagger module found containing path: " + path
+      } else if (tomlBase != null and pathDepth(tomlBase) > pathDepth(jsonBase)) {
+        validateConfig(ws, tomlBase, "dagger-module.toml", tomlConfigPattern, path)
+      } else if (jsonBase != null) {
+        validateConfig(ws, jsonBase, "dagger.json", legacyConfigPattern, path)
+      } else {
+        raise "no Dagger module found containing path: " + path
+      }
+    } else {
+      normalizePath(path)
+    }
+
+    Mod(
+      rootPath: modPath,
+      ws: ws,
+      skipGenerateFilename: skipGenerateFilename,
+    )
+  }
+
+  """
+  Initialize Elixir-owned files for a new Dagger module.
+
+  Returns a Changeset with only the SDK-owned template files layered onto the
+  new module's `path`. Engine-owned files (dagger-module.toml, workspace config
+  updates) are produced by the engine and merged with this changeset.
+
+  Pass `template` to pick a starter under templates/<template>. It defaults to
+  `default` (a small working module). Use `empty` for a bare object module. An
+  explicitly empty template also selects `default` for compatibility.
+
+  The new module does not compile until `dagger generate` runs: its `mix.exs`
+  depends on `./dagger_sdk`, which generation writes.
+  """
+  pub initModule(
+    ws: Workspace!,
+    name: String!,
+    path: String!,
+    """
+    Template to use to init the module: default*, empty
+    """
+    template: String! = "default",
+  ): Changeset! {
+    let rawPath = path.trimPrefix("./").trimPrefix("/")
+
+    let modPath = if (rawPath == "" or rawPath == ".") {
+      "."
+    } else if (rawPath == ".." or rawPath.trimPrefix("../") != rawPath) {
+      raise "path escapes workspace: " + rawPath
+    } else {
+      rawPath.trimSuffix("/")
+    }
+
+    let selectedTemplate = if (template == "") { "default" } else { template }
+
+    if (currentModule.source.exists("templates/" + selectedTemplate) == false) {
+      raise "unknown init template: " + template
+    } else {
+      polyfill.workspace(ws).fork
+        .withDirectory(modPath, renderedTemplate(name, selectedTemplate))
+        .changes
+    }
+  }
+
+  """
+  Render an Elixir template with the requested module name.
+  """
+  let renderedTemplate(name: String!, templateName: String!): Directory! {
+    container
+      .from("golang:1.25-alpine")
+      .withoutEntrypoint
+      .withMountedCache("/go/pkg/mod", cacheVolume("go-mod"))
+      .withMountedCache("/root/.cache/go-build", cacheVolume("go-build"))
+      .withDirectory("/helper", currentModule.source.directory("helpers/render-template"))
+      .withDirectory("/template", currentModule.source.directory("templates/" + templateName))
+      .withWorkdir("/helper")
+      .withExec(["go", "build", "-o", "/usr/local/bin/render-template", "."])
+      .withExec(["render-template", name, "/template", "/rendered"])
+      .directory("/rendered")
+  }
+
+  """
+  Generate every managed Elixir SDK module visible from the client's cwd.
+
+  Modules with the generate skip marker are skipped.
+  """
+  pub generateAll(ws: Workspace!): Changeset! @generate {
+    changeset.withChangesets(
+      modules(ws)
+        .filter { mod => mod.skipGenerate == false }
+        .map { mod => mod.generate },
+    )
+  }
+
+  let workspacePath(cwd: String!, path: String!): String! {
+    let base = if (cwd == ".") { [] } else { cwd.split("/") }
+    let segments = path.split("/").reduce(base) { acc, segment =>
+      if (segment == "..") {
+        acc.dropLast(1)
+      } else if (segment == "." or segment == "") {
+        acc
+      } else {
+        acc + [segment]
+      }
+    }
+    if (segments.length == 0) { "." } else { segments.join("/") }
+  }
+
+  let normalizePath(path: String!): String! {
+    let normalized = path.trimPrefix("./").trimPrefix("/").trimSuffix("/")
+    if (normalized == "") { "." } else { normalized }
+  }
+
+  let pathDepth(path: String): Int! {
+    if (path == null) { -1 } else if (path == ".") { 0 } else { path.split("/").length }
+  }
+
+  let configDir(path: String!, filename: String!): String! {
+    normalizePath(path.trimPrefix("/").trimSuffix(filename))
+  }
+
+  let validateConfig(ws: Workspace!, base: String!, filename: String!, pattern: String!, requestedPath: String!): String! {
+    let configPath = if (base == ".") { filename } else { base + "/" + filename }
+    let matches = ws
+      .directory("/", include: [configPath])
+      .file(configPath)
+      .search(pattern: pattern, multiline: true, dotall: true, limit: 1)
+      .{{id}}
+      .length > 0
+    if (matches) { base } else { raise "Dagger module does not use the Elixir SDK: " + requestedPath }
+  }
+}

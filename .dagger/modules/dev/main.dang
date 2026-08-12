@@ -1,0 +1,137 @@
+pub description = "Develop the Dagger Elixir SDK"
+
+"""
+Dev tooling for this repository: lint and test the Elixir client library and its
+codegen project, and keep the pinned Elixir image in step across the Dang modules
+that reference it.
+
+Module scaffolding, code generation for user modules, and the module runtime are
+not here — they live in the root module (`elixir-sdk.dang`, `mod.dang`) and
+`runtime/main.dang`.
+"""
+type Dev {
+  """
+  Elixir image the checks run on. `syncImage` propagates this to the Dang modules
+  that pin the same image.
+  """
+  pub baseImage: String! = "elixir:1.19.5-otp-28-alpine@sha256:1747b3595b6742d2273d18608203457d5b925000cd38aca40c76e23c64d44def"
+
+  """
+  Path of the Elixir client library within this repository.
+  """
+  pub sourcePath: String! = "sdk"
+
+  """
+  The workspace this module belongs to.
+  """
+  let ws: Workspace!
+
+  """
+  The Elixir client library source.
+  """
+  pub source: Directory! {
+    ws.directory("/", include: [sourcePath + "/**"]).directory(sourcePath)
+  }
+
+  """
+  Lint the client library: formatting plus credo.
+  """
+  pub lint: Void @check {
+    devContainer
+      .withExec(["mix", "format", "--check-formatted"])
+      .withExec(["mix", "credo"])
+      .sync
+
+    null
+  }
+
+  """
+  Run the client library's hermetic test suite.
+
+  Tests tagged :integration need a live engine and are excluded by default; see
+  sdk/test/test_helper.exs.
+  """
+  pub sdkTest: Void @check {
+    devContainer
+      .withExec(["mix", "test"])
+      .sync
+
+    null
+  }
+
+  """
+  Run the dagger_codegen test suite.
+  """
+  pub codegenTest: Void @check {
+    withCodegen(devContainer)
+      .withEnvVariable("CI", "true")
+      .withExec(["mix", "test"])
+      .sync
+
+    null
+  }
+
+  """
+  Update dagger_codegen's Mneme snapshots in place.
+  """
+  pub updateCodegenTests: Changeset! {
+    let before = ws.directory("/", include: [sourcePath + "/dagger_codegen/**"])
+
+    let updated = withCodegen(devContainer)
+      .withEnvVariable("MNEME_ACCEPT", "1")
+      .withExec(["mix", "test"])
+      .directory("/src/dagger_codegen")
+      .withoutDirectory("_build")
+      .withoutDirectory("deps")
+
+    before
+      .withDirectory(sourcePath + "/dagger_codegen", updated)
+      .changes(before)
+  }
+
+  """
+  Pin the same Elixir image everywhere it appears.
+
+  The image is declared in three places that must agree: this module, the module
+  runtime, and the codegen container used by `dagger generate`. Set `baseImage`
+  and run this to propagate it.
+  """
+  pub syncImage: Changeset! {
+    let paths = ["runtime/main.dang", "mod.dang"]
+    let before = ws.directory("/", include: paths)
+
+    paths
+      .reduce(before) { acc, path =>
+        let updated = before.file(path).contents.replaceMatches(
+          `let elixirImage = ".*"`,
+          with: "let elixirImage = \"" + baseImage + "\"",
+        )
+        acc.withNewFile(path, updated)
+      }
+      .changes(before)
+  }
+
+  """
+  Container with the client library mounted and its dependencies fetched.
+  """
+  let devContainer: Container! {
+    container
+      .from(baseImage)
+      .withExec(["apk", "add", "--no-cache", "git"])
+      .withExec(["mix", "local.hex", "--force"])
+      .withExec(["mix", "local.rebar", "--force"])
+      .withMountedCache("/root/.hex", cacheVolume("elixir-sdk-hex"))
+      .withWorkdir("/src")
+      .withDirectory("/src", source)
+      .withExec(["mix", "deps.get"])
+  }
+
+  """
+  Move a container into the dagger_codegen project and fetch its dependencies.
+  """
+  let withCodegen(ctr: Container!): Container! {
+    ctr
+      .withWorkdir("/src/dagger_codegen")
+      .withExec(["mix", "deps.get"])
+  }
+}

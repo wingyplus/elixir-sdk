@@ -1,0 +1,122 @@
+let modSourceDirPath = "/src"
+let genDir = "dagger_sdk"
+let elixirImage = "elixir:1.19.5-otp-28-alpine@sha256:1747b3595b6742d2273d18608203457d5b925000cd38aca40c76e23c64d44def"
+
+"""
+Runtime module for the Elixir SDK.
+
+Builds and packages a module from its already-vendored, committed sources. Code
+generation is owned by the Elixir SDK's `generate` step (`dagger generate`), not
+here: modules commit their generated `dagger_sdk/` directory, so the engine skips
+codegen at module load and this runtime only fetches dependencies, compiles, and
+sets the entrypoint.
+"""
+type ElixirSdkRuntime {
+  """
+  No-op: code generation is owned by `dagger generate`. Modules commit the
+  generated files, so the engine skips codegen at module load. Returning the
+  module source unchanged keeps the SDK code-generator contract satisfied without
+  generating anything.
+  """
+  pub codegen(
+    modSource: ModuleSource!,
+    introspectionJson: File,
+  ): GeneratedCode! {
+    generatedCode(code: modSource.contextDirectory)
+  }
+
+  """
+  Compile the module from its committed sources and return a container that runs
+  it. The module is self-contained — the Elixir SDK is vendored under
+  `dagger_sdk/` and `mix.exs` depends on it by path — so `mix deps.get` only
+  fetches third-party dependencies. No codegen, introspection, or scaffolding
+  happens here.
+  """
+  pub moduleRuntime(
+    modSource: ModuleSource!,
+    introspectionJson: File,
+  ): Container! {
+    let modName = modSource.moduleName
+    let subPath = modSource.sourceSubpath
+    let contextDir = modSource.contextDirectory
+
+    checkGeneratedFiles(contextDir, subPath)
+
+    let workdir = Path(modSourceDirPath).join(Path(subPath)).string
+
+    baseContainer(container)
+      .withMountedDirectory(modSourceDirPath, contextDir)
+      .withWorkdir(workdir)
+      .withEnvVariable("MIX_ENV", "prod")
+      .withEnvVariable("HEX_CACERTS_PATH", "/etc/ssl/certs/ca-certificates.crt")
+      .withExec(["mix", "deps.get", "--only", "prod"])
+      .withExec(["mix", "deps.compile"])
+      .withExec(["mix", "compile"])
+      .withEntrypoint([
+        "mix",
+        "cmd",
+        "--cd",
+        workdir,
+        "mix",
+        "dagger.entrypoint.invoke",
+        toElixirModuleName(modName),
+      ])
+  }
+
+  """
+  Fail early, actionably, when the module is missing its vendored SDK — e.g.
+  `dagger generate` was never run, or its output was not committed. Without this,
+  `mix deps.get` fails on the unresolvable `{:dagger, path: "./dagger_sdk"}`
+  dependency with an error that says nothing about `dagger generate`.
+  """
+  let checkGeneratedFiles(contextDir: Directory!, subPath: String!): Void {
+    let relPath = Path(subPath).join(Path(genDir)).join(Path("mix.exs")).string
+    let moduleLabel = if (subPath == "" or subPath == ".") { "." } else { subPath }
+    let present = contextDir.exists(path: relPath, expectedType: ExistsType.REGULAR_TYPE)
+    let nonEmpty = if (present) { contextDir.file(relPath).size > 0 } else { false }
+    if (nonEmpty == false) {
+      raise "the Elixir module at \"" + moduleLabel + "\" is missing its generated directory \"" + genDir + "\" (missing or empty): run `dagger generate` and commit the generated files"
+    }
+    null
+  }
+
+  let baseContainer(ctr: Container!): Container! {
+    ctr
+      .from(elixirImage)
+      .withExec(["apk", "add", "--no-cache", "git"])
+      .withExec(["mix", "local.hex", "--force"])
+      .withExec(["mix", "local.rebar", "--force"])
+  }
+}
+
+"""
+Convert a Dagger module name into an Elixir application name ("my-module" ->
+"my_module").
+
+Kept byte-for-byte in step with elixirAppName in
+helpers/render-template/main.go, which derives the same name at init time.
+"""
+let toElixirApplicationName(name: String!): String! {
+  name
+    .replaceMatches(`([A-Z]+)([A-Z][a-z])`, with: "$1_$2")
+    .replaceMatches(`([a-z0-9])([A-Z])`, with: "$1_$2")
+    .replaceMatches(`[^A-Za-z0-9]+`, with: "_")
+    .trim("_")
+    .toLower
+}
+
+"""
+Convert a Dagger module name into an Elixir module name ("my-module" ->
+"MyModule").
+
+Kept byte-for-byte in step with elixirModuleName in
+helpers/render-template/main.go: this derives the entrypoint's module name at
+call time, that one derives the `defmodule` name at init time, and a divergence
+means the entrypoint names a module that does not exist.
+"""
+let toElixirModuleName(name: String!): String! {
+  toElixirApplicationName(name)
+    .split("_")
+    .map { word => word.rewriteMatches(`^.`) { first => first.string.toUpper } }
+    .join("")
+}

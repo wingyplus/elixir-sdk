@@ -1,0 +1,21 @@
+# Elixir build artifacts
+_build/
+cover/
+deps/
+doc/
+.fetch
+erl_crash.dump
+*.ez
+*.tar
+tmp/
+
+# Go helper build output
+/helpers/*/render-template
+
+# LSP
+.elixir_ls
+.lexical
+.elixir-tools
+
+# Local env
+.env
