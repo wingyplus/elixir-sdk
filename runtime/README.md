@@ -10,8 +10,7 @@ dispatcher itself. The actual Elixir build still runs in an `elixir:*-alpine` co
 
 ## What it does
 
-It only **fetches dependencies, compiles, and sets the entrypoint** for an Elixir module
-from its committed sources — it does not generate code.
+It **fetches dependencies, compiles, and sets the entrypoint** for an Elixir module.
 
 `moduleRuntime` mounts the module, runs `mix deps.get --only prod` → `mix deps.compile` →
 `mix compile`, and returns a container whose entrypoint is
@@ -20,19 +19,30 @@ from its committed sources — it does not generate code.
 Modules are self-contained: the Elixir SDK is vendored as source under `<module>/dagger_sdk/`
 and `mix.exs` depends on it by path, so `mix deps.get` only fetches third-party dependencies.
 
-Before compiling, `moduleRuntime` checks that `dagger_sdk/mix.exs` exists and is non-empty,
-failing early with an actionable error if `dagger generate` was never run or its output was
-not committed. Without that check, `mix deps.get` fails on the unresolvable path dependency
-with an error that never mentions `dagger generate`.
+When `dagger_sdk/mix.exs` is missing or empty — the module was scaffolded but `dagger
+generate` has not run (or its output was not committed) — `moduleRuntime` builds an
+equivalent `dagger_sdk/` on the fly: it vendors the SDK sources (pulled into this module's
+context by the `../sdk` include patterns in `dagger.json`) and generates the API bindings
+from the engine-provided introspection schema. This keeps a freshly-initialized module
+loadable, which `dagger generate` itself relies on: the engine loads every workspace module
+to discover generators before the SDK's `@generate` hook can write `dagger_sdk/`.
 
-## What owns code generation instead
+`moduleRuntime` declares `introspectionJson` as **required** on purpose. The engine skips
+computing the introspection schema for runtimes that declare it optional (trusting committed
+files instead); requiring it is what makes the on-the-fly fallback possible.
+
+## What owns code generation
 
 Code generation lives in this repository's root Dang module (`elixir-sdk.dang` / `mod.dang`)
-and runs at `dagger generate` time. Modules commit the generated files, so the engine skips
-codegen at module load and this runtime never regenerates them.
+and runs at `dagger generate` time. Modules commit the generated files; the on-the-fly path
+above is only a fallback for modules that have not been generated yet, and never writes to
+the workspace.
 
 `codegen` here is an intentional no-op (it returns the module source unchanged): the SDK
 runtime contract still includes it, but generation is owned by `generate`.
+
+`vendoredSdk` / `generatedBindings` in `main.dang` are kept in step with the same functions
+in `mod.dang`, which produce the committed `dagger_sdk/` at generate time.
 
 ## Keeping names in sync
 

@@ -5,11 +5,14 @@ let elixirImage = "elixir:1.19.5-otp-28-alpine@sha256:1747b3595b6742d2273d186082
 """
 Runtime module for the Elixir SDK.
 
-Builds and packages a module from its already-vendored, committed sources. Code
-generation is owned by the Elixir SDK's `generate` step (`dagger generate`), not
-here: modules commit their generated `dagger_sdk/` directory, so the engine skips
-codegen at module load and this runtime only fetches dependencies, compiles, and
-sets the entrypoint.
+Builds and packages a module from its vendored sources. Code generation is owned
+by the Elixir SDK's `generate` step (`dagger generate`): modules commit their
+generated `dagger_sdk/` directory and this runtime compiles those committed
+sources. A module that has not been generated yet (e.g. freshly scaffolded by
+`dagger module init`, before its first `dagger generate`) still loads: the
+runtime vendors the SDK and generates the API bindings on the fly from the
+engine-provided introspection schema, so `dagger generate` itself can load the
+module and repair it.
 """
 type ElixirSdkRuntime {
   """
@@ -26,26 +29,41 @@ type ElixirSdkRuntime {
   }
 
   """
-  Compile the module from its committed sources and return a container that runs
-  it. The module is self-contained — the Elixir SDK is vendored under
-  `dagger_sdk/` and `mix.exs` depends on it by path — so `mix deps.get` only
-  fetches third-party dependencies. No codegen, introspection, or scaffolding
-  happens here.
+  Compile the module and return a container that runs it. The module is
+  self-contained — the Elixir SDK is vendored under `dagger_sdk/` and `mix.exs`
+  depends on it by path — so `mix deps.get` only fetches third-party
+  dependencies.
+
+  Committed `dagger_sdk/` sources are used as-is. When they are missing (the
+  module was never generated), an equivalent `dagger_sdk/` is generated from
+  `introspectionJson` and overlaid before compiling; `dagger generate` remains
+  what writes it to the workspace.
+
+  `introspectionJson` is deliberately required: the engine only provides it to
+  runtimes that do not declare it optional, and it is what makes an ungenerated
+  module loadable.
   """
   pub moduleRuntime(
     modSource: ModuleSource!,
-    introspectionJson: File,
+    introspectionJson: File!,
   ): Container! {
     let modName = modSource.moduleName
     let subPath = modSource.sourceSubpath
     let contextDir = modSource.contextDirectory
 
-    checkGeneratedFiles(contextDir, subPath)
+    let sourceDir = if (hasGeneratedFiles(contextDir, subPath)) {
+      contextDir
+    } else {
+      contextDir.withDirectory(
+        Path(subPath).join(Path(genDir)).string,
+        vendoredSdk(introspectionJson),
+      )
+    }
 
     let workdir = Path(modSourceDirPath).join(Path(subPath)).string
 
     baseContainer(container)
-      .withMountedDirectory(modSourceDirPath, contextDir)
+      .withMountedDirectory(modSourceDirPath, sourceDir)
       .withWorkdir(workdir)
       .withEnvVariable("MIX_ENV", "prod")
       .withEnvVariable("HEX_CACERTS_PATH", "/etc/ssl/certs/ca-certificates.crt")
@@ -64,20 +82,64 @@ type ElixirSdkRuntime {
   }
 
   """
-  Fail early, actionably, when the module is missing its vendored SDK — e.g.
-  `dagger generate` was never run, or its output was not committed. Without this,
-  `mix deps.get` fails on the unresolvable `{:dagger, path: "./dagger_sdk"}`
-  dependency with an error that says nothing about `dagger generate`.
+  Whether the module's vendored SDK is committed — `dagger_sdk/mix.exs` exists
+  and is non-empty. When it is not, `mix deps.get` would fail on the
+  unresolvable `{:dagger, path: "./dagger_sdk"}` dependency, so `moduleRuntime`
+  generates the vendored SDK on the fly instead.
   """
-  let checkGeneratedFiles(contextDir: Directory!, subPath: String!): Void {
+  let hasGeneratedFiles(contextDir: Directory!, subPath: String!): Boolean! {
     let relPath = Path(subPath).join(Path(genDir)).join(Path("mix.exs")).string
-    let moduleLabel = if (subPath == "" or subPath == ".") { "." } else { subPath }
     let present = contextDir.exists(path: relPath, expectedType: ExistsType.REGULAR_TYPE)
-    let nonEmpty = if (present) { contextDir.file(relPath).size > 0 } else { false }
-    if (nonEmpty == false) {
-      raise "the Elixir module at \"" + moduleLabel + "\" is missing its generated directory \"" + genDir + "\" (missing or empty): run `dagger generate` and commit the generated files"
-    }
-    null
+    if (present) { contextDir.file(relPath).size > 0 } else { false }
+  }
+
+  """
+  The Elixir SDK source shipped alongside this runtime, pulled into the module
+  context by the `../sdk` include patterns in dagger.json.
+  """
+  let sdkSourceDir: Directory! { currentModule.source.directory("../sdk") }
+
+  """
+  The SDK as it is vendored into a module: just enough to compile against.
+
+  Kept in step with vendoredSdk in mod.dang, which produces the same directory
+  at `dagger generate` time; this one only exists so an ungenerated module can
+  load.
+  """
+  let vendoredSdk(introspectionJSON: File!): Directory! {
+    sdkSourceDir
+      .filter(include: ["LICENSE", "mix.exs", "mix.lock", ".formatter.exs", "lib/**/*.ex"])
+      .withoutDirectory("lib/dagger/gen")
+      .withDirectory("lib/dagger/gen", generatedBindings(introspectionJSON))
+  }
+
+  """
+  Run `mix dagger.codegen` over the module's introspection schema and return the
+  generated API bindings.
+
+  Kept in step with generatedBindings in mod.dang.
+  """
+  let generatedBindings(introspectionJSON: File!): Directory! {
+    container
+      .from(elixirImage)
+      .withExec(["apk", "add", "--no-cache", "git"])
+      .withExec(["mix", "local.hex", "--force"])
+      .withExec(["mix", "local.rebar", "--force"])
+      .withMountedCache("/root/.hex", cacheVolume("elixir-sdk-hex"))
+      .withMountedDirectory("/sdk", sdkSourceDir)
+      .withWorkdir("/sdk/dagger_codegen")
+      .withMountedFile("/schema.json", introspectionJSON)
+      .withExec(["mix", "deps.get"])
+      .withExec([
+        "mix",
+        "dagger.codegen",
+        "generate",
+        "--outdir",
+        "/gen",
+        "--introspection",
+        "/schema.json",
+      ])
+      .directory("/gen")
   }
 
   let baseContainer(ctr: Container!): Container! {

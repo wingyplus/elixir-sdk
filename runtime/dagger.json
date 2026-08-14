@@ -3,5 +3,13 @@
   "engineVersion": "v1.0.0-0",
   "sdk": {
     "source": "dang"
-  }
+  },
+  "include": [
+    "../sdk/lib/**",
+    "../sdk/mix.exs",
+    "../sdk/mix.lock",
+    "../sdk/.formatter.exs",
+    "../sdk/LICENSE",
+    "../sdk/dagger_codegen/**"
+  ]
 }

@@ -105,6 +105,9 @@ type Mod {
 
   The checked-in bindings are then replaced by ones generated from this module's
   own schema.
+
+  Kept in step with vendoredSdk in runtime/main.dang, which builds the same
+  directory on the fly when an ungenerated module is loaded.
   """
   let vendoredSdk(introspectionJSON: File!): Directory! {
     sdkSourceDir
@@ -116,6 +119,8 @@ type Mod {
   """
   Run `mix dagger.codegen` over the module's introspection schema and return the
   generated API bindings.
+
+  Kept in step with generatedBindings in runtime/main.dang.
   """
   let generatedBindings(introspectionJSON: File!): Directory! {
     container
