@@ -22,7 +22,27 @@ defmodule Dagger.Codegen.NamingTest do
   test "function/1" do
     assert Naming.function("withEnvVariable") == "with_env_variable"
     assert Naming.function("loadSecretFromID") == "load_secret_from_id"
+  end
+
+  test "function/1 keeps a pluralised acronym in one piece" do
+    # Without this, `Macro.underscore/1` yields "experimental_with_all_gp_us".
+    # See dagger/dagger#6310, which the Python SDK still has.
     assert Naming.function("experimentalWithAllGPUs") == "experimental_with_all_gpus"
+    assert Naming.function("listIDs") == "list_ids"
+  end
+
+  test "function/1 leaves an acronym followed by a word alone" do
+    assert Naming.function("withVCSGeneratedPaths") == "with_vcs_generated_paths"
+    assert Naming.function("asHTTPState") == "as_http_state"
+    assert Naming.function("withMCPServer") == "with_mcp_server"
+    assert Naming.function("insecureSkipTLSVerify") == "insecure_skip_tls_verify"
+    assert Naming.function("experimentalWithGPU") == "experimental_with_gpu"
+  end
+
+  test "module/1 keeps the schema's own casing, as every other SDK does" do
+    assert Naming.module("SDKConfig") == "Dagger.SDKConfig"
+    assert Naming.module("LLMTokenUsage") == "Dagger.LLMTokenUsage"
+    assert Naming.module("HTTPState") == "Dagger.HTTPState"
   end
 
   test "function/1 escapes reserved words" do

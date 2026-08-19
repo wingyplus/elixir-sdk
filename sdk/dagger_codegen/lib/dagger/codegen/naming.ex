@@ -40,13 +40,20 @@ defmodule Dagger.Codegen.Naming do
   defp escape_reserved(name) when name in @reserved_words, do: name <> "_"
   defp escape_reserved(name), do: name
 
-  # `Macro.underscore/1` turns runs of capitals into one word, so `GPU` would
-  # become `gpu` glued to whatever follows. See dagger/dagger#6310.
-  @acronyms %{"GPU" => "Gpu", "VCS" => "Vcs"}
+  # `Macro.underscore/1` breaks a run of capitals before its last letter when a
+  # lowercase one follows, so a pluralised acronym comes out split:
+  # `experimentalWithAllGPUs` becomes `experimental_with_all_gp_us`
+  # (dagger/dagger#6310, which the Python SDK still has). Folding the run down to
+  # a single capital first gives `experimental_with_all_gpus`, which is what Go
+  # and TypeScript spell too — they just never have to split it.
+  #
+  # Only a trailing lowercase `s` needs this. An acronym followed by a new word
+  # (`withVCSGeneratedPaths`, `asHTTPState`) already underscores correctly.
+  @plural_acronym ~r/[A-Z]{2,}s(?![a-z])/
 
   defp normalize_acronym(name) do
-    Enum.reduce(@acronyms, name, fn {acronym, replacement}, name ->
-      String.replace(name, acronym, replacement)
+    Regex.replace(@plural_acronym, name, fn acronym ->
+      String.first(acronym) <> String.downcase(String.slice(acronym, 1..-1//1))
     end)
   end
 
