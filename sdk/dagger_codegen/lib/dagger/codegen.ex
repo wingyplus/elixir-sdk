@@ -1,9 +1,14 @@
 defmodule Dagger.Codegen do
   @moduledoc """
   Generates the Dagger API bindings from a GraphQL introspection schema.
+
+  One schema type becomes one Elixir module: the analyzer decides what the module
+  contains, the renderer prints it, and the formatter lays it out.
   """
 
-  alias Dagger.Codegen.ElixirGenerator
+  alias Dagger.Codegen.ElixirGenerator.Analyzer
+  alias Dagger.Codegen.ElixirGenerator.Naming
+  alias Dagger.Codegen.ElixirGenerator.Render
   alias Dagger.Codegen.Introspection.Types.Schema
 
   @doc """
@@ -18,6 +23,23 @@ defmodule Dagger.Codegen do
     |> Task.async_stream(&write!(&1, index, outdir), ordered: false, timeout: :infinity)
     |> Stream.run()
   end
+
+  @doc """
+  Generate the source for one type.
+
+  `index` describes the rest of the schema; see `Analyzer.analyze/2`.
+  """
+  def generate(type, index \\ %{}) do
+    type
+    |> Analyzer.analyze(index)
+    |> Render.render()
+    |> format()
+  end
+
+  @doc """
+  File the generated module belongs in.
+  """
+  def filename(type), do: Naming.var(type.name) <> ".ex"
 
   @doc """
   Types the generator emits a module for, in the order it emits them.
@@ -38,11 +60,19 @@ defmodule Dagger.Codegen do
     end)
   end
 
+  # Renderers emit unindented source and let the formatter lay it out, so this is
+  # not optional polish — it is what makes the output readable. The trailing
+  # newline matters too: without it every file fails `mix format --check-formatted`.
+  defp format(code) do
+    code
+    |> IO.iodata_to_binary()
+    |> Code.format_string!()
+    |> then(&[&1, ?\n])
+    |> IO.iodata_to_binary()
+  end
+
   defp write!(type, index, outdir) do
-    File.write!(
-      Path.join(outdir, ElixirGenerator.filename(type)),
-      ElixirGenerator.generate(type, index)
-    )
+    File.write!(Path.join(outdir, filename(type)), generate(type, index))
   end
 
   defp kind(%{kind: "OBJECT"}), do: :object

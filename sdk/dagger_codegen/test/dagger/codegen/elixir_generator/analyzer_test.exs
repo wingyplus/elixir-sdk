@@ -123,7 +123,6 @@ defmodule Dagger.Codegen.ElixirGenerator.AnalyzerTest do
             %{
               "name" => "withContainer",
               "description" => "",
-              "isDeprecated" => false,
               "deprecationReason" => nil,
               "type" => non_null(%{"kind" => "OBJECT", "name" => "Container", "ofType" => nil}),
               "args" => [

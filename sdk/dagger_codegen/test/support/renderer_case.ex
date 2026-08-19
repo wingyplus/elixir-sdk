@@ -1,7 +1,6 @@
 defmodule Dagger.Codegen.RendererCase do
   use ExUnit.CaseTemplate
 
-  alias Dagger.Codegen.ElixirGenerator
   alias Dagger.Codegen.Introspection.Types.Type
 
   using do
@@ -21,7 +20,7 @@ defmodule Dagger.Codegen.RendererCase do
   snapshots below double as proof that generated output is `mix format` clean.
   """
   def render_type(path, kinds \\ %{}) do
-    code = path |> load_type() |> ElixirGenerator.generate(kinds)
+    code = path |> load_type() |> Dagger.Codegen.generate(kinds)
 
     formatted = IO.iodata_to_binary([Code.format_string!(code), ?\n])
 

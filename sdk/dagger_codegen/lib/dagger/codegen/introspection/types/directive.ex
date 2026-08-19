@@ -1,4 +1,8 @@
 defmodule Dagger.Codegen.Introspection.Types.Directive.Arg do
+  @moduledoc false
+
+  @type t :: %__MODULE__{name: String.t(), value: String.t()}
+
   defstruct [:name, :value]
 
   def from_map(%{"name" => name, "value" => value}) do
@@ -7,7 +11,13 @@ defmodule Dagger.Codegen.Introspection.Types.Directive.Arg do
 end
 
 defmodule Dagger.Codegen.Introspection.Types.Directive do
-  defstruct [:name, :args]
+  @moduledoc """
+  A GraphQL directive attached to a type, field, argument or enum value.
+  """
+
+  @type t :: %__MODULE__{name: String.t(), args: [__MODULE__.Arg.t()]}
+
+  defstruct [:name, args: []]
 
   def from_map(%{"name" => name, "args" => args}) do
     %__MODULE__{name: name, args: Enum.map(args, &__MODULE__.Arg.from_map/1)}

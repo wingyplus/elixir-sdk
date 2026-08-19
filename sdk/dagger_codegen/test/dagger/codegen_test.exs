@@ -4,9 +4,7 @@ defmodule Dagger.CodegenTest do
   alias Dagger.Codegen
   alias Dagger.Codegen.Introspection.Types.Schema
 
-  defp schema(types) do
-    Schema.from_map(%{"queryType" => %{"name" => "Query"}, "types" => types})
-  end
+  defp schema(types), do: Schema.from_map(%{"types" => types})
 
   defp type(kind, name, extra \\ %{}) do
     Map.merge(%{"kind" => kind, "name" => name}, extra)
@@ -34,18 +32,8 @@ defmodule Dagger.CodegenTest do
         schema([
           type("ENUM", "CacheSharingMode", %{
             "enumValues" => [
-              %{
-                "name" => "SHARED",
-                "description" => "",
-                "isDeprecated" => false,
-                "deprecationReason" => nil
-              },
-              %{
-                "name" => "PRIVATE",
-                "description" => "",
-                "isDeprecated" => false,
-                "deprecationReason" => nil
-              }
+              %{"name" => "SHARED", "description" => ""},
+              %{"name" => "PRIVATE", "description" => ""}
             ]
           })
         ])
@@ -76,7 +64,6 @@ defmodule Dagger.CodegenTest do
         %{
           "name" => name,
           "description" => "",
-          "isDeprecated" => false,
           "deprecationReason" => nil,
           "args" => [],
           "type" => %{"kind" => "SCALAR", "name" => "String", "ofType" => nil}
