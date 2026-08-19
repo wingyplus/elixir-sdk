@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.RenderEnumTest do
+defmodule Dagger.Codegen.RenderEnumTest do
   use Dagger.Codegen.RendererCase, async: true
 
   test "render enum" do

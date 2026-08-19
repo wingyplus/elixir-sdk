@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.RenderInputTest do
+defmodule Dagger.Codegen.RenderInputTest do
   use Dagger.Codegen.RendererCase, async: true
 
   test "render input object" do

@@ -1,7 +1,7 @@
-defmodule Dagger.Codegen.ElixirGenerator.NamingTest do
+defmodule Dagger.Codegen.NamingTest do
   use ExUnit.Case, async: true
 
-  alias Dagger.Codegen.ElixirGenerator.Naming
+  alias Dagger.Codegen.Naming
 
   test "module/1" do
     assert Naming.module("Container") == "Dagger.Container"

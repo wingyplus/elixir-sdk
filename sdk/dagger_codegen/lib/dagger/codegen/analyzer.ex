@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.Analyzer do
+defmodule Dagger.Codegen.Analyzer do
   @moduledoc """
   Turns an introspection type into the `ModuleDef` the renderer prints.
 
@@ -6,12 +6,12 @@ defmodule Dagger.Codegen.ElixirGenerator.Analyzer do
   whether an argument travels as an id, what a field returns — is made once here.
   """
 
-  alias Dagger.Codegen.ElixirGenerator.IR.Arg
-  alias Dagger.Codegen.ElixirGenerator.IR.EnumValue
-  alias Dagger.Codegen.ElixirGenerator.IR.Function
-  alias Dagger.Codegen.ElixirGenerator.IR.ModuleDef
-  alias Dagger.Codegen.ElixirGenerator.Naming
-  alias Dagger.Codegen.ElixirGenerator.Type
+  alias Dagger.Codegen.IR.Arg
+  alias Dagger.Codegen.IR.EnumValue
+  alias Dagger.Codegen.IR.Function
+  alias Dagger.Codegen.IR.ModuleDef
+  alias Dagger.Codegen.Naming
+  alias Dagger.Codegen.Type
   alias Dagger.Codegen.Introspection.Types.Directive
   alias Dagger.Codegen.Introspection.Types.InputValue
 

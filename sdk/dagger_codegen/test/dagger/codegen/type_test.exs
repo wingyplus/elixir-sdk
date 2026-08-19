@@ -1,7 +1,7 @@
-defmodule Dagger.Codegen.ElixirGenerator.TypeTest do
+defmodule Dagger.Codegen.TypeTest do
   use ExUnit.Case, async: true
 
-  alias Dagger.Codegen.ElixirGenerator.Type
+  alias Dagger.Codegen.Type
   alias Dagger.Codegen.Introspection.Types.TypeRef
 
   defp ref(kind, name, of_type \\ nil),

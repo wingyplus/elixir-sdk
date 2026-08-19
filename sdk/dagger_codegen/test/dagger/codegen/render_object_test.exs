@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.RenderObjectTest do
+defmodule Dagger.Codegen.RenderObjectTest do
   use Dagger.Codegen.RendererCase, async: true
 
   # Fixtures whose arguments carry an `@expectedType` need to know what kind the

@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.Type do
+defmodule Dagger.Codegen.Type do
   @moduledoc """
   Canonical Elixir view of a GraphQL type reference.
 
@@ -7,7 +7,7 @@ defmodule Dagger.Codegen.ElixirGenerator.Type do
   every consumer downstream is a flat pattern match instead of another walk.
   """
 
-  alias Dagger.Codegen.ElixirGenerator.Naming
+  alias Dagger.Codegen.Naming
   alias Dagger.Codegen.Introspection.Types.TypeRef
 
   @type name :: String.t()

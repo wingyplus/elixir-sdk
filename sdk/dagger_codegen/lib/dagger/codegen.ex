@@ -6,9 +6,9 @@ defmodule Dagger.Codegen do
   contains, the renderer prints it, and the formatter lays it out.
   """
 
-  alias Dagger.Codegen.ElixirGenerator.Analyzer
-  alias Dagger.Codegen.ElixirGenerator.Naming
-  alias Dagger.Codegen.ElixirGenerator.Render
+  alias Dagger.Codegen.Analyzer
+  alias Dagger.Codegen.Naming
+  alias Dagger.Codegen.Render
   alias Dagger.Codegen.Introspection.Types.Schema
 
   @doc """

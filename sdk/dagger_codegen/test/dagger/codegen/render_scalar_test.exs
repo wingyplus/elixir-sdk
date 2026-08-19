@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.RenderScalarTest do
+defmodule Dagger.Codegen.RenderScalarTest do
   use Dagger.Codegen.RendererCase, async: true
 
   test "render scalar" do

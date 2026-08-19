@@ -2,7 +2,7 @@ defmodule Dagger.Codegen.Introspection.Types.TypeRef do
   @moduledoc """
   A GraphQL type reference, in wire shape.
 
-  See `Dagger.Codegen.ElixirGenerator.Type` for the normalized form everything
+  See `Dagger.Codegen.Type` for the normalized form everything
   downstream actually works with.
   """
 

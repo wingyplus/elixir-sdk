@@ -1,8 +1,8 @@
-defmodule Dagger.Codegen.ElixirGenerator.AnalyzerTest do
+defmodule Dagger.Codegen.AnalyzerTest do
   use ExUnit.Case, async: true
 
-  alias Dagger.Codegen.ElixirGenerator.Analyzer
-  alias Dagger.Codegen.ElixirGenerator.IR.ModuleDef
+  alias Dagger.Codegen.Analyzer
+  alias Dagger.Codegen.IR.ModuleDef
   alias Dagger.Codegen.Introspection.Types.Type
 
   defp analyze(fixture, kinds \\ %{}) do

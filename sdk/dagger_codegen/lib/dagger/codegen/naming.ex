@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.Naming do
+defmodule Dagger.Codegen.Naming do
   @moduledoc """
   Maps GraphQL names onto Elixir names.
 

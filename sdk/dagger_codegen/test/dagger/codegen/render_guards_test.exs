@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.RenderGuardsTest do
+defmodule Dagger.Codegen.RenderGuardsTest do
   use Dagger.Codegen.RendererCase, async: true
 
   @index %{

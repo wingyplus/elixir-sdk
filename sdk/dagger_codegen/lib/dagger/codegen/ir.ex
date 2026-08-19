@@ -1,4 +1,4 @@
-defmodule Dagger.Codegen.ElixirGenerator.IR do
+defmodule Dagger.Codegen.IR do
   @moduledoc """
   What a generated module contains, decided once by the analyzer and printed by
   the renderer.
@@ -34,7 +34,7 @@ defmodule Dagger.Codegen.ElixirGenerator.IR do
     @type t :: %__MODULE__{
             name: String.t(),
             gql_name: String.t(),
-            type: Dagger.Codegen.ElixirGenerator.Type.t(),
+            type: Dagger.Codegen.Type.t(),
             doc: String.t() | nil,
             guard: guard()
           }
@@ -70,12 +70,12 @@ defmodule Dagger.Codegen.ElixirGenerator.IR do
     """
 
     @type return ::
-            {:lazy, Dagger.Codegen.ElixirGenerator.Type.t()}
-            | {:leaf, Dagger.Codegen.ElixirGenerator.Type.t()}
+            {:lazy, Dagger.Codegen.Type.t()}
+            | {:leaf, Dagger.Codegen.Type.t()}
             | :void
-            | {:enum, Dagger.Codegen.ElixirGenerator.Type.t()}
-            | {:list_of_enum, Dagger.Codegen.ElixirGenerator.Type.t()}
-            | {:nodes, Dagger.Codegen.ElixirGenerator.Type.t()}
+            | {:enum, Dagger.Codegen.Type.t()}
+            | {:list_of_enum, Dagger.Codegen.Type.t()}
+            | {:nodes, Dagger.Codegen.Type.t()}
             | {:node, String.t()}
 
     @type t :: %__MODULE__{
