@@ -1,0 +1,144 @@
+{
+  "description": "An OCI-compatible container.",
+  "directives": [],
+  "enumValues": [],
+  "inputFields": [],
+  "interfaces": [],
+  "kind": "OBJECT",
+  "name": "Container",
+  "possibleTypes": [],
+  "fields": [
+    {
+      "name": "withEverything",
+      "description": "Take one argument of every guardable shape.",
+      "isDeprecated": false,
+      "deprecationReason": null,
+      "directives": [],
+      "type": {
+        "kind": "NON_NULL",
+        "name": null,
+        "ofType": { "kind": "OBJECT", "name": "Container", "ofType": null }
+      },
+      "args": [
+        {
+          "name": "name",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "String", "ofType": null }
+          }
+        },
+        {
+          "name": "count",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "Int", "ofType": null }
+          }
+        },
+        {
+          "name": "expand",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "Boolean", "ofType": null }
+          }
+        },
+        {
+          "name": "config",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "JSON", "ofType": null }
+          }
+        },
+        {
+          "name": "args",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": {
+              "kind": "LIST",
+              "name": null,
+              "ofType": {
+                "kind": "NON_NULL",
+                "name": null,
+                "ofType": { "kind": "SCALAR", "name": "String", "ofType": null }
+              }
+            }
+          }
+        },
+        {
+          "name": "source",
+          "description": "",
+          "defaultValue": null,
+          "directives": [
+            { "name": "expectedType", "args": [{ "name": "name", "value": "\"Directory\"" }] }
+          ],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null }
+          }
+        },
+        {
+          "name": "object",
+          "description": "",
+          "defaultValue": null,
+          "directives": [
+            { "name": "expectedType", "args": [{ "name": "name", "value": "\"Node\"" }] }
+          ],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "ID", "ofType": null }
+          }
+        },
+        {
+          "name": "sharing",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "ENUM", "name": "CacheSharingMode", "ofType": null }
+          }
+        },
+        {
+          "name": "at",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": {
+            "kind": "NON_NULL",
+            "name": null,
+            "ofType": { "kind": "SCALAR", "name": "DateTime", "ofType": null }
+          }
+        },
+        {
+          "name": "owner",
+          "description": "",
+          "defaultValue": null,
+          "directives": [],
+          "type": { "kind": "SCALAR", "name": "String", "ofType": null }
+        }
+      ]
+    }
+  ]
+}

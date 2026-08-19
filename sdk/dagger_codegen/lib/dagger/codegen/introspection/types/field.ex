@@ -9,10 +9,6 @@ defmodule Dagger.Codegen.Introspection.Types.Field do
     :directives
   ]
 
-  def no_args?(%__MODULE__{} = field) do
-    field.args == []
-  end
-
   def from_map(
         %{
           "args" => args,

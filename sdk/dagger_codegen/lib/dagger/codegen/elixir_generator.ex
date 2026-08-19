@@ -1,37 +1,40 @@
 defmodule Dagger.Codegen.ElixirGenerator do
   @moduledoc """
-  Dagger Elixir code generator.
+  Generates the Elixir bindings for one introspection type.
   """
 
-  alias Dagger.Codegen.ElixirGenerator.EnumRenderer
-  alias Dagger.Codegen.ElixirGenerator.Formatter
-  alias Dagger.Codegen.ElixirGenerator.InputRenderer
-  alias Dagger.Codegen.ElixirGenerator.ObjectRenderer
-  alias Dagger.Codegen.ElixirGenerator.ScalarRenderer
+  alias Dagger.Codegen.ElixirGenerator.Analyzer
+  alias Dagger.Codegen.ElixirGenerator.Naming
+  alias Dagger.Codegen.ElixirGenerator.Render
 
-  def generate_scalar(type) do
-    ScalarRenderer.render(type)
+  @doc """
+  Generate the source for `type`.
+
+  `index` describes the rest of the schema; see `Analyzer.analyze/2`.
+  """
+  def generate(type, index \\ %{}) do
+    type
+    |> Analyzer.analyze(index)
+    |> Render.render()
+    |> format()
   end
 
-  def generate_object(type) do
-    ObjectRenderer.render(type)
-  end
+  @doc """
+  File the generated module belongs in.
+  """
+  def filename(type), do: Naming.var(type.name) <> ".ex"
 
-  def generate_input(type) do
-    InputRenderer.render(type)
-  end
+  @doc """
+  Format generated source.
 
-  def generate_enum(type) do
-    EnumRenderer.render(type)
-  end
-
-  def filename(type) do
-    "#{Formatter.format_var_name(type.name)}.ex"
-  end
-
+  Renderers emit unindented source and let the formatter lay it out, so this is
+  not optional polish — it is what makes the output valid to read.
+  """
   def format(code) do
     code
     |> IO.iodata_to_binary()
-    |> Code.format_string!(code)
+    |> Code.format_string!()
+    |> then(&[&1, ?\n])
+    |> IO.iodata_to_binary()
   end
 end

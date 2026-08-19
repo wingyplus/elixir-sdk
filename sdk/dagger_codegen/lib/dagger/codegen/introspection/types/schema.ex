@@ -4,10 +4,6 @@ defmodule Dagger.Codegen.Introspection.Types.Schema do
     :types
   ]
 
-  def get_type(%__MODULE__{} = schema, type) do
-    Enum.find(schema.types, &(&1.name == type.name))
-  end
-
   @doc """
   Convert a schema map from introspection.json into module.
   """

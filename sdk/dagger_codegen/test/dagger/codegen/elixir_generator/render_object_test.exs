@@ -1,7 +1,13 @@
-defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
+defmodule Dagger.Codegen.ElixirGenerator.RenderObjectTest do
   use Dagger.Codegen.RendererCase, async: true
 
-  alias Dagger.Codegen.ElixirGenerator.ObjectRenderer
+  # Fixtures whose arguments carry an `@expectedType` need to know what kind the
+  # named type is, the same way `Dagger.Codegen.index/1` tells the real run.
+  @index %{
+    "Directory" => %{kind: :object, enum_values: []},
+    "Module" => %{kind: :object, enum_values: []},
+    "TypeDef" => %{kind: :object, enum_values: []}
+  }
 
   test "return object node" do
     auto_assert(
@@ -19,7 +25,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Create a new TypeDef.
@@ -35,7 +41,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           }
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/chain-selection.json")
+      """ <- render_type("test/fixtures/objects/chain-selection.json")
     )
   end
 
@@ -55,7 +61,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Retrieves the list of environment variables passed to commands.
@@ -80,7 +86,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/list-leaf-nodes.json")
+      """ <- render_type("test/fixtures/objects/list-leaf-nodes.json")
     )
   end
 
@@ -100,7 +106,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         The environment variable name.
@@ -113,7 +119,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           Client.execute(env_variable.client, query_builder)
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/execute-leaf-node.json")
+      """ <- render_type("test/fixtures/objects/execute-leaf-node.json")
     )
   end
 
@@ -133,13 +139,13 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Create a code generation result, given a directory containing the generated code.
         \"""
         @spec generated_code(t(), Dagger.Directory.t()) :: Dagger.GeneratedCode.t()
-        def generated_code(%__MODULE__{} = client, code) do
+        def generated_code(%__MODULE__{} = client, %Dagger.Directory{} = code) do
           query_builder =
             client.query_builder
             |> QB.select("generatedCode")
@@ -151,7 +157,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           }
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/id-arg.json")
+      """ <- render_type("test/fixtures/objects/id-arg.json", @index)
     )
   end
 
@@ -172,7 +178,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         @derive Dagger.Sync
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Forces evaluation of the pipeline in the engine.
@@ -197,7 +203,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/iss-7788.json")
+      """ <- render_type("test/fixtures/objects/iss-7788.json")
     )
   end
 
@@ -217,13 +223,13 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Set the return value of the function call to the provided value.
         \"""
         @spec return_value(t(), Dagger.JSON.t()) :: :ok | {:error, term()}
-        def return_value(%__MODULE__{} = function_call, value) do
+        def return_value(%__MODULE__{} = function_call, value) when is_binary(value) do
           query_builder =
             function_call.query_builder |> QB.select("returnValue") |> QB.put_arg("value", value)
 
@@ -233,7 +239,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/return-void.json")
+      """ <- render_type("test/fixtures/objects/return-void.json")
     )
   end
 
@@ -253,7 +259,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         The kind of type this is (e.g. primitive, list, object).
@@ -269,7 +275,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/return-scalar.json")
+      """ <- render_type("test/fixtures/objects/return-scalar.json")
     )
   end
 
@@ -289,7 +295,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @spec permissions(t()) :: {:ok, [Dagger.GhaPermission.t()]} | {:error, term()}
         def permissions(%__MODULE__{} = gha_settings) do
@@ -302,7 +308,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/return-list-of-enums.json")
+      """ <- render_type("test/fixtures/objects/return-list-of-enums.json")
     )
   end
 
@@ -322,7 +328,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Return a snapshot with a directory added
@@ -330,10 +336,16 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         @spec with_directory(t(), String.t(), Dagger.Directory.t(), [
                 {:exclude, [String.t()]},
                 {:include, [String.t()]},
-                {:gitignore, boolean() | nil},
-                {:owner, String.t() | nil}
+                {:gitignore, boolean()},
+                {:owner, String.t()}
               ]) :: Dagger.Directory.t()
-        def with_directory(%__MODULE__{} = directory, path, source, optional_args \\\\ []) do
+        def with_directory(
+              %__MODULE__{} = directory,
+              path,
+              %Dagger.Directory{} = source,
+              optional_args \\\\ []
+            )
+            when is_binary(path) do
           query_builder =
             directory.query_builder
             |> QB.select("withDirectory")
@@ -350,7 +362,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           }
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/iss-8610.json")
+      """ <- render_type("test/fixtures/objects/iss-8610.json", @index)
     )
   end
 
@@ -372,7 +384,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         @derive Dagger.Sync
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         The dependencies of the module.
@@ -546,7 +558,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         Note: this can only be called once per session. In the future, it could return a stream or service to remove the side effect.
         \"""
-        @spec serve(t(), [{:include_dependencies, boolean() | nil}, {:entrypoint, boolean() | nil}]) ::
+        @spec serve(t(), [{:include_dependencies, boolean()}, {:entrypoint, boolean()}]) ::
                 :ok | {:error, term()}
         def serve(%__MODULE__{} = module, optional_args \\\\ []) do
           query_builder =
@@ -600,7 +612,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         Retrieves the module with the given description
         \"""
         @spec with_description(t(), String.t()) :: Dagger.Module.t()
-        def with_description(%__MODULE__{} = module, description) do
+        def with_description(%__MODULE__{} = module, description) when is_binary(description) do
           query_builder =
             module.query_builder
             |> QB.select("withDescription")
@@ -616,7 +628,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         This module plus the given Enum type and associated values
         \"""
         @spec with_enum(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-        def with_enum(%__MODULE__{} = module, enum) do
+        def with_enum(%__MODULE__{} = module, %Dagger.TypeDef{} = enum) do
           query_builder =
             module.query_builder |> QB.select("withEnum") |> QB.put_arg("enum", Dagger.ID.id!(enum))
 
@@ -630,7 +642,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         This module plus the given Interface type and associated functions
         \"""
         @spec with_interface(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-        def with_interface(%__MODULE__{} = module, iface) do
+        def with_interface(%__MODULE__{} = module, %Dagger.TypeDef{} = iface) do
           query_builder =
             module.query_builder
             |> QB.select("withInterface")
@@ -646,7 +658,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
         This module plus the given Object type and associated functions.
         \"""
         @spec with_object(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-        def with_object(%__MODULE__{} = module, object) do
+        def with_object(%__MODULE__{} = module, %Dagger.TypeDef{} = object) do
           query_builder =
             module.query_builder
             |> QB.select("withObject")
@@ -682,7 +694,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
            }}
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/gen-protocol.json")
+      """ <- render_type("test/fixtures/objects/gen-protocol.json", @index)
     )
   end
 
@@ -702,7 +714,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Function doc contains " and \\\\
@@ -733,7 +745,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           end
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/escape-docs.json")
+      """ <- render_type("test/fixtures/objects/escape-docs.json")
     )
   end
 
@@ -753,16 +765,16 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
 
         defstruct [:query_builder, :client]
 
-        @type t() :: %__MODULE__{}
+        @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
 
         @doc \"""
         Initializes a new environment
 
         > #### Experimental {: .warning}
         >
-        > "Environments are not yet stabilized"
+        > Environments are not yet stabilized
         \"""
-        @spec env(t(), [{:privileged, boolean() | nil}, {:writable, boolean() | nil}]) :: Dagger.Env.t()
+        @spec env(t(), [{:privileged, boolean()}, {:writable, boolean()}]) :: Dagger.Env.t()
         def env(%__MODULE__{} = client, optional_args \\\\ []) do
           query_builder =
             client.query_builder
@@ -776,7 +788,7 @@ defmodule Dagger.Codegen.ElixirGenerator.ObjectRendererTest do
           }
         end
       end\
-      """ <- render_type(ObjectRenderer, "test/fixtures/objects/experimental.json")
+      """ <- render_type("test/fixtures/objects/experimental.json")
     )
   end
 end

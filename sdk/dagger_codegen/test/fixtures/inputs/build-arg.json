@@ -1,0 +1,32 @@
+{
+  "description": "Key value object that represents a build argument.",
+  "directives": [],
+  "enumValues": [],
+  "fields": [],
+  "inputFields": [
+    {
+      "defaultValue": null,
+      "description": "The build argument name.",
+      "name": "name",
+      "type": {
+        "kind": "NON_NULL",
+        "name": null,
+        "ofType": { "kind": "SCALAR", "name": "String", "ofType": null }
+      }
+    },
+    {
+      "defaultValue": null,
+      "description": "The build argument value.",
+      "name": "value",
+      "type": {
+        "kind": "NON_NULL",
+        "name": null,
+        "ofType": { "kind": "SCALAR", "name": "String", "ofType": null }
+      }
+    }
+  ],
+  "interfaces": [],
+  "kind": "INPUT_OBJECT",
+  "name": "BuildArg",
+  "possibleTypes": []
+}

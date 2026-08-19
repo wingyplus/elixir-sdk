@@ -3,6 +3,8 @@ defmodule Dagger.Core.EngineConn do
 
   alias Dagger.Core.Engine.Downloader
 
+  @type t :: %__MODULE__{port: non_neg_integer(), token: String.t(), session_pid: pid() | nil}
+
   defstruct [:port, :token, :session_pid]
 
   @doc false

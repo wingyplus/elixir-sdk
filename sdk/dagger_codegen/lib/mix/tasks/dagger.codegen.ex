@@ -5,6 +5,9 @@ defmodule Mix.Tasks.Dagger.Codegen do
 
   use Mix.Task
 
+  alias Dagger.Codegen.Introspection.Types.Schema
+
+  @impl true
   def run(args) do
     :argparse.run(Enum.map(args, &String.to_charlist/1), cli(), %{progname: :dagger_codegen})
   end
@@ -14,18 +17,8 @@ defmodule Mix.Tasks.Dagger.Codegen do
       commands: %{
         ~c"generate" => %{
           arguments: [
-            %{
-              name: :outdir,
-              type: :binary,
-              long: ~c"-outdir",
-              required: true
-            },
-            %{
-              name: :introspection,
-              type: :binary,
-              long: ~c"-introspection",
-              required: true
-            }
+            %{name: :outdir, type: :binary, long: ~c"-outdir", required: true},
+            %{name: :introspection, type: :binary, long: ~c"-introspection", required: true}
           ],
           handler: &handle_generate/1
         }
@@ -33,24 +26,13 @@ defmodule Mix.Tasks.Dagger.Codegen do
     }
   end
 
-  def handle_generate(%{outdir: outdir, introspection: introspection}) do
+  defp handle_generate(%{outdir: outdir, introspection: introspection}) do
     %{"__schema" => schema} = introspection |> File.read!() |> JSON.decode!()
 
-    IO.puts("Generate code to #{outdir}")
+    Mix.shell().info("Generate code to #{outdir}")
 
-    File.mkdir_p!(outdir)
-
-    Dagger.Codegen.generate(
-      Dagger.Codegen.ElixirGenerator,
-      Dagger.Codegen.Introspection.Types.Schema.from_map(schema)
-    )
-    |> Task.async_stream(
-      fn {:ok, {file, code}} ->
-        Path.join(outdir, file)
-        |> File.write!(code)
-      end,
-      ordered: false
-    )
-    |> Stream.run()
+    schema
+    |> Schema.from_map()
+    |> Dagger.Codegen.generate_to!(outdir)
   end
 end
