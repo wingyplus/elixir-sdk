@@ -1,10 +1,10 @@
 defmodule Dagger.Mod.Object.FunctionDef do
   @moduledoc false
 
-  # A function declaration from `Dagger.Mod.Object.defn/2`.
+  # A function declaration from `Dagger.Mod.Object.defn/2` or `defn/3`.
 
   @enforce_keys [:self, :args, :return]
-  defstruct @enforce_keys ++ [:cache_policy, :check]
+  defstruct @enforce_keys ++ [:cache_policy, check: false, generate: false]
 
   @doc """
   Convert a `fun_def` into Dagger Function.
@@ -17,9 +17,10 @@ defmodule Dagger.Mod.Object.FunctionDef do
       Dagger.Mod.Object.TypeDef.define(dag, fun_def.return)
     )
     |> maybe_with_description(Dagger.Mod.Object.get_function_doc(module, name))
-    |> maybe_with_cache_policy(Dagger.Mod.Object.get_function_cache_policy(fun_def))
+    |> maybe_with_cache_policy(fun_def.cache_policy)
     |> maybe_with_deprecated(Dagger.Mod.Object.get_function_deprecated(module, name))
     |> maybe_with_check(fun_def.check)
+    |> maybe_with_generator(fun_def.generate)
     |> with_args(fun_def.args, dag)
   end
 
@@ -42,16 +43,28 @@ defmodule Dagger.Mod.Object.FunctionDef do
   defp maybe_with_deprecated(function, {:deprecated, reason}),
     do: Dagger.Function.with_deprecated(function, reason: reason)
 
-  defp maybe_with_check(function, nil), do: function
   defp maybe_with_check(function, true), do: Dagger.Function.with_check(function)
+  defp maybe_with_check(function, _), do: function
+
+  defp maybe_with_generator(function, true), do: Dagger.Function.with_generator(function)
+  defp maybe_with_generator(function, _), do: function
 
   defp maybe_with_cache_policy(function, nil), do: function
 
-  defp maybe_with_cache_policy(function, {policy, ttl}),
-    do: Dagger.Function.with_cache_policy(function, policy, ttl)
+  defp maybe_with_cache_policy(function, {:ttl, ttl}) do
+    Dagger.Function.with_cache_policy(function, Dagger.FunctionCachePolicy.default(),
+      time_to_live: ttl
+    )
+  end
 
-  defp maybe_with_cache_policy(function, policy),
-    do: Dagger.Function.with_cache_policy(function, policy)
+  defp maybe_with_cache_policy(function, :default),
+    do: Dagger.Function.with_cache_policy(function, Dagger.FunctionCachePolicy.default())
+
+  defp maybe_with_cache_policy(function, :never),
+    do: Dagger.Function.with_cache_policy(function, Dagger.FunctionCachePolicy.never())
+
+  defp maybe_with_cache_policy(function, :per_session),
+    do: Dagger.Function.with_cache_policy(function, Dagger.FunctionCachePolicy.per_session())
 
   defp maybe_with_description(function, nil), do: function
   defp maybe_with_description(function, doc), do: Dagger.Function.with_description(function, doc)
@@ -80,8 +93,6 @@ defmodule Dagger.Mod.Object.FunctionDef do
 
   defp normalize_arg_option({:default, default_value}),
     do: {:default_value, Jason.encode!(default_value)}
-
-  defp normalize_arg_option({:deprecation, reason}), do: {:deprecation, reason}
 
   defp normalize_arg_option(opt), do: opt
 end

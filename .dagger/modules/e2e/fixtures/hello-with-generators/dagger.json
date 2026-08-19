@@ -1,0 +1,7 @@
+{
+  "name": "hello-with-generators",
+  "engineVersion": "v1.0.0-0",
+  "sdk": {
+    "source": "../../../../../runtime"
+  }
+}

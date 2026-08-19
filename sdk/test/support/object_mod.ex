@@ -132,37 +132,68 @@ defmodule DeprecatedDirective do
   end
 end
 
-defmodule CacheAttribute do
+defmodule CacheOption do
   @moduledoc false
-  use Dagger.Mod.Object, name: "CacheAttribute"
+  use Dagger.Mod.Object, name: "CacheOption"
 
-  @cache :never
-  defn never_cached() :: Dagger.Void.t() do
+  defn default_cached() :: Dagger.Void.t(), cache: :default do
     :ok
   end
 
-  @cache :per_session
-  defn per_session_cached() :: Dagger.Void.t() do
+  defn never_cached() :: Dagger.Void.t(), cache: :never do
     :ok
   end
 
-  @cache ttl: "42s"
-  defn ttl_cached() :: Dagger.Void.t() do
+  defn per_session_cached() :: Dagger.Void.t(), cache: :per_session do
+    :ok
+  end
+
+  defn ttl_cached() :: Dagger.Void.t(), cache: {:ttl, "42s"} do
+    :ok
+  end
+
+  defn uncached() :: Dagger.Void.t() do
     :ok
   end
 end
 
-defmodule CheckAttribute do
+defmodule CheckOption do
   @moduledoc false
-  use Dagger.Mod.Object, name: "CheckAttribute"
+  use Dagger.Mod.Object, name: "CheckOption"
 
-  @check true
-  defn checked_function() :: Dagger.Void.t() do
+  defn checked_function() :: Dagger.Void.t(), :check do
     :ok
   end
 
   defn unchecked_function() :: Dagger.Void.t() do
     :ok
+  end
+end
+
+defmodule GenerateOption do
+  @moduledoc false
+  use Dagger.Mod.Object, name: "GenerateOption"
+
+  defn generator_function() :: Dagger.Changeset.t(), :generate do
+    dag() |> Dagger.Client.changeset()
+  end
+
+  # Optional arguments are fine; only *required* ones break the contract.
+  defn generator_with_optional_arg(name: {String.t(), default: "gen"}) ::
+         Dagger.Changeset.t(),
+       :generate do
+    _ = name
+    dag() |> Dagger.Client.changeset()
+  end
+end
+
+defmodule CombinedOptions do
+  @moduledoc false
+  use Dagger.Mod.Object, name: "CombinedOptions"
+
+  defn everything() :: Dagger.Changeset.t(),
+       [:check, :generate, cache: {:ttl, "1h30m"}] do
+    dag() |> Dagger.Client.changeset()
   end
 end
 

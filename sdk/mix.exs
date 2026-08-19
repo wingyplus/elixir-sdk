@@ -59,7 +59,9 @@ defmodule Dagger.MixProject do
   defp docs do
     [
       source_url_pattern: "#{@source_url}/blob/v#{@version}/sdk/%{path}#L%{line}",
-      main: "Dagger"
+      main: "Dagger",
+      extras: ["guides/module-authoring.md"],
+      groups_for_extras: [Guides: ~r/guides\//]
     ]
   end
 end

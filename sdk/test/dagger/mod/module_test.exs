@@ -377,6 +377,48 @@ defmodule Dagger.Mod.ModuleTest do
     assert {:ok, nil} = Dagger.FieldTypeDef.deprecated(f2)
   end
 
+  # The engine exposes no readers for the check/generator/cache-policy flags on
+  # `Function` -- only the `with*` writers -- so these cannot be asserted by
+  # reading them back. What this does verify is that the engine accepts the
+  # queries `defn` builds: a wrong enum value, a misnamed argument or an
+  # illegal policy/TTL combination fails when the definition is resolved.
+  # Reading the flags back is covered by the e2e suite via `dagger check`.
+  describe "function options" do
+    test "cache policies are accepted by the engine", %{dag: dag} do
+      root = root_object(dag, CacheOption)
+
+      assert {:ok, functions} = Dagger.ObjectTypeDef.functions(root)
+
+      assert ["defaultCached", "neverCached", "perSessionCached", "ttlCached", "uncached"] =
+               Enum.map(functions, fn fun ->
+                 {:ok, name} = Dagger.Function.name(fun)
+                 name
+               end)
+    end
+
+    test "check and generate flags are accepted by the engine", %{dag: dag} do
+      assert {:ok, [checked, unchecked]} =
+               root_object(dag, CheckOption) |> Dagger.ObjectTypeDef.functions()
+
+      assert {:ok, "checkedFunction"} = Dagger.Function.name(checked)
+      assert {:ok, "uncheckedFunction"} = Dagger.Function.name(unchecked)
+
+      assert {:ok, [generator, generator_with_arg]} =
+               root_object(dag, GenerateOption) |> Dagger.ObjectTypeDef.functions()
+
+      assert {:ok, "generatorFunction"} = Dagger.Function.name(generator)
+      assert {:ok, "generatorWithOptionalArg"} = Dagger.Function.name(generator_with_arg)
+    end
+
+    test "flags and cache combine on one function", %{dag: dag} do
+      assert {:ok, [everything]} =
+               root_object(dag, CombinedOptions) |> Dagger.ObjectTypeDef.functions()
+
+      assert {:ok, "everything"} = Dagger.Function.name(everything)
+      assert {:ok, []} = Dagger.Function.args(everything)
+    end
+  end
+
   defp root_object(dag, module) do
     module = Module.define(dag, module)
     {:ok, [root_object]} = Dagger.Module.objects(module)

@@ -38,18 +38,115 @@ defmodule Dagger.Mod.Object do
   arguments and return type by using Elixir Typespec. The type will convert to
   a Dagger type when registering a module.
 
-  The supported primitive types for now are:
+  The supported types are:
 
-  1. `integer()` for a boolean type.
-  2. `boolean()` for a boolean type.
-  3. `String.t()` or `binary()` for a string type.
-  4. `list(type)` or `[type]` for a list type.
-  5. `type | nil` for optional type.
-  6. Any type that generated under `Dagger` namespace (`Dagger.Container.t()`,
+  1. `integer()` for an integer type.
+  2. `float()` for a float type.
+  3. `boolean()` for a boolean type.
+  4. `String.t()` or `binary()` for a string type.
+  5. `list(type)` or `[type]` for a list type.
+  6. `type | nil` for optional type.
+  7. Any type that generated under `Dagger` namespace (`Dagger.Container.t()`,
      `Dagger.Directory.t()`, etc.).
+  8. Any module that declares `use Dagger.Mod.Object` or `use Dagger.Mod.Enum`.
 
   The function also support documentation by using Elixir standard documentation,
   `@doc`.
+
+  A function may take the object itself as its first argument by naming it
+  `self`:
+
+      defn with_name(self, name: String.t()) :: __MODULE__.t() do
+        %__MODULE__{self | name: name}
+      end
+
+  ## Configure a function
+
+  `defn` accepts an optional configuration after the return type. Use a bare
+  atom for a single flag, or a list to combine several options:
+
+      defn lint() :: Dagger.Void.t(), :check do
+        # ...
+      end
+
+      defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(),
+             [:check, cache: {:ttl, "30s"}] do
+        # ...
+      end
+
+  The supported options are:
+
+  | Option | Value | Description |
+  | ------ | ----- | ----------- |
+  | `:check` | flag | Discover and run this function with `dagger check`. |
+  | `:generate` | flag | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. |
+  | `cache:` | `:default` | Cache the result with the engine default policy. |
+  | `cache:` | `:never` | Never cache the result. |
+  | `cache:` | `:per_session` | Cache the result for the duration of a session. |
+  | `cache:` | `{:ttl, duration}` | Cache the result for `duration`, e.g. `{:ttl, "30s"}`. |
+
+  A cache `duration` is a duration string such as `"30s"`, `"10m"` or `"1h30m"`.
+  The engine rejects a value outside 1 second to 7 days.
+
+  See `defn/3` for the full grammar.
+
+  ## Declare a constructor
+
+  A function named `init` becomes the object constructor. It is called when the
+  object is first created, and its return value becomes the object:
+
+      defmodule Potato do
+        use Dagger.Mod.Object, name: "Potato"
+
+        object do
+          field(:name, String.t())
+        end
+
+        defn init(name: {String.t(), default: "potato"}) :: __MODULE__.t() do
+          %__MODULE__{name: name}
+        end
+      end
+
+  `:check` and `:generate` cannot be used on `init`.
+
+  ## Declare fields
+
+  Use `object/1` and `field/3` to declare an object that carries state between
+  function calls:
+
+      object do
+        field(:name, String.t())
+        field(:size, integer() | nil)
+      end
+
+  A field typed as optional (`type | nil`) is not enforced when building the
+  struct. `field/3` accepts `:doc` and `:deprecated`.
+
+  ## Declare argument options
+
+  An argument may carry options by wrapping its type in a tuple:
+
+      defn entries(dir: {Dagger.Directory.t(), doc: "The directory.", default_path: "/"}) ::
+             [String.t()] do
+        # ...
+      end
+
+  The supported argument options are `:doc`, `:default`, `:default_path`,
+  `:ignore` and `:deprecated`.
+
+  ## Deprecation
+
+  A module, function or argument can be marked as deprecated. Modules and
+  functions use the standard Elixir annotations:
+
+      @moduledoc deprecated: "Use `NewPotato` instead."
+
+      @doc deprecated: "Use `echo2/1` instead."
+      defn echo(name: String.t()) :: String.t() do
+        # ...
+      end
+
+  An argument uses the `:deprecated` argument option.
   """
 
   @type function_name() :: atom()
@@ -57,6 +154,7 @@ defmodule Dagger.Mod.Object do
 
   alias Dagger.Mod.Object.Defn
   alias Dagger.Mod.Object.Meta
+  alias Dagger.Mod.Object.Options
 
   @doc """
   Get module deprecation reason if deprecated from docs annotation metadata
@@ -138,34 +236,6 @@ defmodule Dagger.Mod.Object do
     {module_doc, metadatas, function_docs}
   end
 
-  @doc """
-  Get function cache policy.
-
-  Return `Dagger.FunctionCachePolicy` or `nil` if the function did not specify `@cache` attributes
-  """
-  @spec get_function_cache_policy(struct()) ::
-          Dagger.FunctionCachePolicy.t()
-          | {Dagger.FunctionCachePolicy.t(), {:ttl, String.t()}}
-          | nil
-
-  def get_function_cache_policy(fun_def) do
-    policy = fun_def |> Map.get(:cache_policy)
-
-    case policy do
-      :never ->
-        Dagger.FunctionCachePolicy.never()
-
-      :per_session ->
-        Dagger.FunctionCachePolicy.per_session()
-
-      [ttl: ttl] ->
-        {Dagger.FunctionCachePolicy.default(), [time_to_live: ttl]}
-
-      nil ->
-        nil
-    end
-  end
-
   defmacro __before_compile__(env) do
     if Module.get_attribute(env.module, :struct_declared) do
       required_fields = Module.get_attribute(env.module, :required_fields) || []
@@ -192,13 +262,11 @@ defmodule Dagger.Mod.Object do
     quote do
       use Dagger.Core.Base, kind: :object, name: unquote(name)
 
-      import Dagger.Mod.Object, only: [defn: 2, field: 2, field: 3, object: 1]
+      import Dagger.Mod.Object, only: [defn: 2, defn: 3, field: 2, field: 3, object: 1]
       import Dagger.Global, only: [dag: 0]
 
       Module.register_attribute(__MODULE__, :function, accumulate: true, persist: true)
       Module.register_attribute(__MODULE__, :field, accumulate: true, persist: true)
-      Module.register_attribute(__MODULE__, :cache, accumulate: false, persist: true)
-      Module.register_attribute(__MODULE__, :check, accumulate: false, persist: true)
 
       @before_compile Dagger.Mod.Object
 
@@ -229,28 +297,79 @@ defmodule Dagger.Mod.Object do
 
   @doc """
   Declare a function.
+
+  See `defn/3` to configure the declared function.
   """
   defmacro defn(call, do: block) do
+    build(call, [], block)
+  end
+
+  @doc """
+  Declare a function with configuration.
+
+  The configuration is either a single flag, written as a bare atom, or a list
+  combining flags and keyword pairs:
+
+      defn lint() :: Dagger.Void.t(), :check do
+        # ...
+      end
+
+      defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(),
+             [:check, cache: {:ttl, "30s"}] do
+        # ...
+      end
+
+  ## Flags
+
+    * `:check` - discover and run this function with `dagger check`. The
+      function fails the check when it raises, or when it returns a container
+      whose last command exits non-zero.
+
+    * `:generate` - register this function as a generator, run by
+      `dagger generate`. Generators also run as part of `dagger check` unless
+      it is given `--no-generate`. A function declared with both `:check` and
+      `:generate` runs once, as a check.
+
+  ## Options
+
+    * `:cache` - the caching behaviour of the function result. One of:
+
+        * `:default` - the engine default policy.
+        * `:never` - never cache the result.
+        * `:per_session` - cache the result for the duration of a session.
+        * `{:ttl, duration}` - cache the result for `duration`.
+
+      A `duration` is a duration string such as `"30s"`, `"10m"` or `"1h30m"`.
+      The shape is checked when the module compiles; the engine rejects a
+      value outside 1 second to 7 days when the module is served.
+
+  Both flags and options are validated when the module is compiled, so an
+  unknown option, a bad cache policy or a malformed duration raises an
+  `ArgumentError` pointing at the `defn` that declared it.
+
+  Neither `:check` nor `:generate` can be used on `init`, which declares the
+  object constructor rather than a callable function.
+  """
+  defmacro defn(call, opts, do: block) do
+    build(call, opts, block)
+  end
+
+  # Builds the AST for both `defn/2` and `defn/3`. This runs at expansion time,
+  # so any option error is raised against the `defn` call site.
+  defp build(call, opts, block) do
     {name, args, return} = extract_call(call)
     has_self? = is_tuple(args)
     arg_defs = compile_args(args)
     return_def = compile_typespec!(return)
+    fun_opts = Options.normalize!(opts, name)
 
     quote do
-      cache_attr =
-        Module.get_attribute(__MODULE__, :cache)
-
-      check_attr =
-        Module.get_attribute(__MODULE__, :check)
-
-      Module.put_attribute(__MODULE__, :cache, nil)
-      Module.put_attribute(__MODULE__, :check, nil)
-
       @function {unquote(name),
                  %Dagger.Mod.Object.FunctionDef{
                    self: unquote(has_self?),
-                   cache_policy: cache_attr,
-                   check: check_attr,
+                   cache_policy: unquote(fun_opts[:cache]),
+                   check: unquote(fun_opts[:check]),
+                   generate: unquote(fun_opts[:generate]),
                    args: unquote(arg_defs),
                    return: unquote(return_def)
                  }}

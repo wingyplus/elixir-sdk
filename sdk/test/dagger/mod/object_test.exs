@@ -2,6 +2,8 @@ defmodule Dagger.Mod.ObjectTest do
   use ExUnit.Case, async: true
 
   alias Dagger.Mod.Object.FunctionDef
+
+  defp defn_options(fun_name, opts), do: Dagger.Mod.Object.Options.normalize!(opts, fun_name)
   alias Dagger.Mod.Object.FieldDef
 
   describe "defn/2" do
@@ -306,44 +308,138 @@ defmodule Dagger.Mod.ObjectTest do
              ]
     end
 
-    test "check attribute" do
-      assert CheckAttribute.__object__(:functions) == [
+    test "check option" do
+      assert CheckOption.__object__(:functions) == [
                checked_function: %FunctionDef{
                  self: false,
                  args: [],
                  return: Dagger.Void,
-                 check: true
+                 check: true,
+                 generate: false
                },
                unchecked_function: %FunctionDef{
                  self: false,
                  args: [],
                  return: Dagger.Void,
-                 check: nil
+                 check: false,
+                 generate: false
                }
              ]
     end
 
-    test "cache policy" do
-      assert CacheAttribute.__object__(:functions) == [
+    test "generate option" do
+      assert [
+               generator_function: %FunctionDef{
+                 self: false,
+                 args: [],
+                 return: Dagger.Changeset,
+                 check: false,
+                 generate: true
+               },
+               generator_with_optional_arg: %FunctionDef{
+                 self: false,
+                 return: Dagger.Changeset,
+                 check: false,
+                 generate: true
+               }
+             ] = GenerateOption.__object__(:functions)
+    end
+
+    test "cache option" do
+      assert CacheOption.__object__(:functions) == [
+               default_cached: %FunctionDef{
+                 self: false,
+                 args: [],
+                 return: Dagger.Void,
+                 check: false,
+                 generate: false,
+                 cache_policy: :default
+               },
                never_cached: %FunctionDef{
                  self: false,
                  args: [],
                  return: Dagger.Void,
+                 check: false,
+                 generate: false,
                  cache_policy: :never
                },
                per_session_cached: %FunctionDef{
                  self: false,
                  args: [],
                  return: Dagger.Void,
+                 check: false,
+                 generate: false,
                  cache_policy: :per_session
                },
                ttl_cached: %FunctionDef{
                  self: false,
                  args: [],
                  return: Dagger.Void,
-                 cache_policy: [{:ttl, "42s"}]
+                 check: false,
+                 generate: false,
+                 cache_policy: {:ttl, "42s"}
+               },
+               uncached: %FunctionDef{
+                 self: false,
+                 args: [],
+                 return: Dagger.Void,
+                 check: false,
+                 generate: false,
+                 cache_policy: nil
                }
              ]
+    end
+
+    test "combining flags and options" do
+      assert [
+               everything: %FunctionDef{
+                 check: true,
+                 generate: true,
+                 cache_policy: {:ttl, "1h30m"}
+               }
+             ] = CombinedOptions.__object__(:functions)
+    end
+
+    test "option validation" do
+      assert_raise ArgumentError, ~r/unknown option :ttl for `defn f`/, fn ->
+        defn_options(:f, ttl: "30s")
+      end
+
+      assert_raise ArgumentError, ~r/unknown option :up for `defn f`/, fn ->
+        defn_options(:f, :up)
+      end
+
+      assert_raise ArgumentError, ~r/expected :check to be a boolean/, fn ->
+        defn_options(:f, check: "yes")
+      end
+
+      assert_raise ArgumentError, ~r/invalid cache ttl "1 hour"/, fn ->
+        defn_options(:f, cache: {:ttl, "1 hour"})
+      end
+
+      assert_raise ArgumentError, ~r/invalid `cache` option :bogus/, fn ->
+        defn_options(:f, cache: :bogus)
+      end
+
+      assert_raise ArgumentError, ~r/option :check was given more than once/, fn ->
+        defn_options(:f, [:check, check: true])
+      end
+
+      assert_raise ArgumentError, ~r/:check cannot be used on `defn init`/, fn ->
+        defn_options(:init, :check)
+      end
+
+      assert_raise ArgumentError, ~r/:generate cannot be used on `defn init`/, fn ->
+        defn_options(:init, :generate)
+      end
+    end
+
+    test "options are optional and default to off" do
+      assert Dagger.Mod.Object.Options.normalize!([], :f) ==
+               [check: false, generate: false, cache: nil]
+
+      assert Dagger.Mod.Object.Options.normalize!(:check, :f)[:check]
+      assert Dagger.Mod.Object.Options.normalize!([cache: :never], :init)[:cache] == :never
     end
 
     test "type option validation" do
