@@ -1,0 +1,241 @@
+# Where the capture wrapper below writes each command's streams and status.
+# These are literals because a file-level `let` in Dang cannot reference another.
+let stdoutPath = "/tmp/e2e/stdout"
+let stderrPath = "/tmp/e2e/stderr"
+let combinedPath = "/tmp/e2e/combined"
+let exitCodePath = "/tmp/e2e/exit-code"
+
+# Capture the command's streams and status without failing the exec, so a check
+# can assert on a command that is expected to fail.
+let captureScript = "mkdir -p /tmp/e2e; timeout_arg=$1; shift; timeout \"$timeout_arg\" /usr/local/bin/dagger \"$@\" > /tmp/e2e/stdout 2> /tmp/e2e/stderr; code=$?; cat /tmp/e2e/stdout /tmp/e2e/stderr > /tmp/e2e/combined; printf '%s' \"$code\" > /tmp/e2e/exit-code; exit 0"
+
+"""
+Black-box runner for a Dagger module under test.
+
+It mounts a workspace-rooted directory view, installs a Dagger CLI release from
+dl.dagger.io, and drives the module through real CLI commands the way a user
+would.
+
+This is deliberately not `github.com/dagger/sdk-sdk/mod-test`, which does the
+same thing for `dagger api call`. mod-test pins its runner container to
+`linux/amd64`, and the nested CLI it installs is a Go binary: on an arm64 engine
+that binary runs emulated and segfaults at random, which makes every check
+flaky. This runner uses the engine's native platform instead. It also runs
+`dagger check`, which mod-test cannot do — and which the check-discovery test
+needs, since what is under test there is `dagger check` output rather than a
+function result.
+"""
+type ModuleRunner {
+  """
+  Workspace-rooted directory view holding every file needed to load the module.
+  """
+  let workspaceView: Directory!
+
+  """
+  Path of the module under test inside that view.
+  """
+  let modulePath: String!
+
+  """
+  Dagger CLI release version, with or without a leading "v".
+  """
+  let daggerCliVersion: String!
+
+  """
+  Command timeout, in `timeout(1)` syntax.
+  """
+  let timeout: String!
+
+  """
+  Run `dagger api call -j` against the module and require success.
+  """
+  pub call(args: [String!]!): Run! {
+    let result = tryCall(args)
+    result.assertSuccess
+    result
+  }
+
+  """
+  Run `dagger api call -j` against the module without requiring success.
+  """
+  pub tryCall(args: [String!]!): Run! {
+    run(["--progress", "plain", "api", "call", "-j", "-m", moduleRef] + args)
+  }
+
+  """
+  Run `dagger check` against the module without requiring success.
+  """
+  pub check(args: [String!]!): Run! {
+    run(["--progress", "report", "check", "-m", moduleRef] + args)
+  }
+
+  """
+  Assert that a call's JSON stdout is the expected JSON string.
+  """
+  pub assertJsonString(args: [String!]!, want: String!, message: String!): Void {
+    let result = tryCall(args)
+    if (result.succeeded == false) {
+      raise message + "\nargs: " + toJSON(args) + "\nstderr:\n" + result.stderr
+    }
+
+    let got = result.stdout.trimSuffix("\n")
+    let wantJSON = toJSON(want)
+    if (got != wantJSON) {
+      raise message + "\nargs: " + toJSON(args) + "\nwant JSON:\n" + wantJSON + "\ngot JSON:\n" + got
+    }
+    null
+  }
+
+  """
+  Run a dagger command in the runner and capture its result.
+  """
+  let run(command: [String!]!): Run! {
+    Run(
+      container: runner.withExec(
+        ["sh", "-c", captureScript, "e2e-run", timeout] + command,
+        experimentalPrivilegedNesting: true,
+      ),
+      args: command,
+    )
+  }
+
+  """
+  The module under test, as the mounted CLI sees it.
+  """
+  let moduleRef: String! { "/work/" + modulePath }
+
+  """
+  Container with a release Dagger CLI and the module's workspace view mounted.
+  """
+  let runner: Container! {
+    container(platform: defaultPlatform)
+      .from("alpine:3.22")
+      .withoutEntrypoint
+      .withFile("/tmp/" + daggerCliArchiveName, daggerCliArchive)
+      .withFile("/tmp/checksums.txt", daggerCliChecksums)
+      .withExec([
+        "sh",
+        "-c",
+        "archive=$1; cd /tmp; line=$(awk -v f=\"$archive\" '$2 == f { print }' checksums.txt); test -n \"$line\"; printf '%s\n' \"$line\" | sha256sum -c -; tar -xzf \"$archive\" -C /usr/local/bin dagger; chmod +x /usr/local/bin/dagger",
+        "install-dagger-cli",
+        daggerCliArchiveName,
+      ])
+      .withMountedDirectory("/work", workspaceView)
+      .withWorkdir("/work")
+  }
+
+  """
+  Dagger CLI release archive for the runner platform.
+  """
+  let daggerCliArchive: File! {
+    http(url: daggerCliReleaseURL + "/" + daggerCliArchiveName)
+  }
+
+  """
+  Dagger CLI release checksum file.
+  """
+  let daggerCliChecksums: File! {
+    http(url: daggerCliReleaseURL + "/checksums.txt")
+  }
+
+  let daggerCliReleaseVersion: String! { daggerCliVersion.trimPrefix("v") }
+
+  let daggerCliReleaseURL: String! {
+    "https://dl.dagger.io/dagger/releases/" + daggerCliReleaseVersion
+  }
+
+  let daggerCliArchiveName: String! {
+    "dagger_v" + daggerCliReleaseVersion + "_" + runnerOS + "_" + runnerArch + ".tar.gz"
+  }
+
+  """
+  The engine's platform, as "<os>/<arch>[/<variant>]".
+  """
+  let runnerPlatformString: String! {
+    toJSON(defaultPlatform).trimPrefix("\"").trimSuffix("\"")
+  }
+
+  let runnerOS: String! {
+    let segments = runnerPlatformString.split("/")
+    segments.dropLast(segments.length - 1).join("")
+  }
+
+  let runnerArch: String! {
+    let segments = runnerPlatformString.split("/")
+    segments.dropFirst(1).dropLast(segments.length - 2).join("")
+  }
+}
+
+"""
+Result of a dagger CLI command against a module under test.
+"""
+type Run {
+  let container: Container!
+  let args: [String!]!
+
+  """
+  The command stdout.
+  """
+  pub stdout: String! {
+    container.file(stdoutPath).contents
+  }
+
+  """
+  The command stderr.
+  """
+  pub stderr: String! {
+    container.file(stderrPath).contents
+  }
+
+  """
+  The command stdout followed by its stderr.
+  """
+  pub output: String! {
+    container.file(combinedPath).contents
+  }
+
+  """
+  The command exit code as decimal text.
+  """
+  pub exitCode: String! {
+    container.file(exitCodePath).contents
+  }
+
+  """
+  Whether the command exited successfully.
+  """
+  pub succeeded: Boolean! {
+    exitCode == "0"
+  }
+
+  """
+  Whether a line of the combined output matches a regular expression.
+  """
+  pub matches(pattern: String!): Boolean! {
+    container
+      .file(combinedPath)
+      .search(pattern: pattern, multiline: true, limit: 1)
+      .{{id}}
+      .length > 0
+  }
+
+  """
+  Fail when the command did not exit successfully.
+  """
+  pub assertSuccess: Void {
+    if (succeeded == false) {
+      raise "dagger command failed: " + toJSON(args) + "\noutput:\n" + output
+    }
+    null
+  }
+
+  """
+  Fail when the command exited successfully.
+  """
+  pub assertFailure: Void {
+    if (succeeded) {
+      raise "dagger command unexpectedly succeeded: " + toJSON(args) + "\noutput:\n" + output
+    }
+    null
+  }
+}

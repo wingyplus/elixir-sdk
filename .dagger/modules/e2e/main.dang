@@ -1,0 +1,182 @@
+"""
+End-to-end checks for Dagger modules written with the Elixir SDK.
+
+Each check drives a fixture module under `fixtures/` through the Dagger CLI the
+way a user would, so it exercises the whole stack: this repository's `runtime/`
+loads the module, the runtime generates the API bindings on the fly (the
+fixtures are deliberately left ungenerated), and the module serves its API.
+
+The fixtures use the legacy `dagger.json` — not `dagger-module.toml` — and point
+`sdk.source` at this repository's `runtime/` by relative path, so the checks run
+against the working tree rather than a published SDK. They are intentionally
+*not* registered in the workspace `dagger.toml`: they exist to be executed, not
+generated, so `dagger generate` should leave them alone.
+
+Ported from `core/integration/module_elixir_test.go` in the Dagger monorepo; one
+check per Go test function, with each Go subtest an assertion inside it.
+"""
+type E2e {
+  """
+  Workspace-root-relative path of the fixture modules.
+  """
+  let fixtureRoot: String! = ".dagger/modules/e2e/fixtures"
+
+  """
+  Dagger CLI release the fixture modules are driven with. Keep it compatible
+  with the `engineVersion` the fixtures declare in their `dagger.json`.
+  """
+  let daggerCliVersion: String! = "1.0.0-beta.9"
+
+  """
+  Black-box runner for a fixture module.
+  """
+  let fixture(ws: Workspace!, name: String!): ModuleRunner! {
+    let source = polyfill.workspace(ws).moduleSource("/" + fixtureRoot + "/" + name)
+    ModuleRunner(
+      workspaceView: source.workspaceView,
+      modulePath: source.sourceRootPath,
+      daggerCliVersion: daggerCliVersion,
+      timeout: "10m",
+    )
+  }
+
+  """
+  Fail the current check when a condition is false.
+  """
+  let assert(condition: Boolean!, message: String!): Void {
+    if (condition == false) { raise message }
+    null
+  }
+
+  """
+  A nullable argument can be omitted, passed, or given a default in Elixir.
+  """
+  pub optionalValueCheck(ws: Workspace!): Void @check {
+    let defaults = fixture(ws, "defaults")
+
+    defaults.assertJsonString(["echo-else"], "default value if null", "a nullable argument should be null when omitted")
+    defaults.assertJsonString(["echo-else", "--value=foo"], "foo", "a nullable argument should take the value passed")
+    defaults.assertJsonString(["echo-value"], "foo", "an omitted argument should fall back to its default")
+    defaults.assertJsonString(["echo-value", "--value=bar"], "bar", "a passed argument should override its default")
+    defaults.assertJsonString(["call-echo-value"], "foo", "a default should also apply when the function is called from Elixir")
+  }
+
+  """
+  `default_path` resolves a File or Directory argument from the module source.
+  """
+  pub defaultPathCheck(ws: Workspace!): Void @check {
+    let defaults = fixture(ws, "defaults")
+
+    # The runner's cwd is the workspace root, not the module root, so an
+    # explicit path is spelled from there. `file-name` returns the file's base
+    # name either way.
+    defaults.assertJsonString(
+      ["file-name", "--file=./" + fixtureRoot + "/defaults/mix.exs"],
+      "mix.exs",
+      "an explicit file argument should win over its default_path",
+    )
+    defaults.assertJsonString(["file-name"], "dagger.json", "an omitted file argument should resolve its default_path")
+    defaults.assertJsonString(["file-names"], "defaults.ex", "an omitted directory argument should resolve its default_path")
+  }
+
+  """
+  `ignore` filters the entries of a Directory argument.
+  """
+  pub ignoreCheck(ws: Workspace!): Void @check {
+    let defaults = fixture(ws, "defaults")
+
+    let noIgnore = defaults.call(["files-no-ignore"]).stdout
+    assert(noIgnore.contains("dagger.json"), "without ignore, dagger.json should be present: " + noIgnore)
+    assert(noIgnore.contains("mix.exs"), "without ignore, mix.exs should be present: " + noIgnore)
+
+    let ignored = defaults.call(["files-ignore"]).stdout
+    assert(ignored.contains("dagger.json"), "with ignore, dagger.json should still be present: " + ignored)
+    assert(ignored.contains("mix.exs") == false, "with ignore, mix.exs should be filtered out: " + ignored)
+
+    let negIgnored = defaults.call(["files-neg-ignore"]).stdout
+    assert(negIgnored.contains("dagger.json") == false, "with negated ignore, dagger.json should be filtered out: " + negIgnored)
+    assert(negIgnored.contains("mix.exs") == false, "with negated ignore, mix.exs should be filtered out: " + negIgnored)
+    assert(negIgnored.contains("lib"), "with negated ignore, lib should be present: " + negIgnored)
+  }
+
+  """
+  A function can return the object it was called on.
+  """
+  pub returnSelfCheck(ws: Workspace!): Void @check {
+    fixture(ws, "self-object")
+      .assertJsonString(["foo", "message"], "bar", "a function returning self should carry its updated fields")
+  }
+
+  """
+  A function can return another object defined by the module, and chain into it.
+  """
+  pub returnChildObjectCheck(ws: Workspace!): Void @check {
+    let objects = fixture(ws, "objects")
+
+    objects.assertJsonString(["object-a", "message"], "Hello from A", "the module should return its child object")
+    objects.assertJsonString(["object-a", "object-b", "message"], "Hello from B", "a child object should return its own child")
+  }
+
+  """
+  `init` accepts constructor arguments.
+  """
+  pub constructorArgCheck(ws: Workspace!): Void @check {
+    fixture(ws, "constructor-function")
+      .assertJsonString(["--name", "Elixir", "greeting"], "Hello, Elixir!", "the constructor argument should reach the object")
+  }
+
+  """
+  Enum arguments accept their values, honour defaults, and reject anything else.
+  """
+  pub enumArgCheck(ws: Workspace!): Void @check {
+    let defaults = fixture(ws, "defaults")
+
+    defaults.assertJsonString(["echo-enum", "--value=FOO"], "FOO", "an enum argument should take the value passed")
+    defaults.assertJsonString(["enum-value"], "FOO", "an omitted enum argument should fall back to its default")
+    defaults.assertJsonString(["enum-value", "--value=GAR"], "GAR", "a passed enum argument should override its default")
+
+    let wrong = defaults.tryCall(["enum-value", "--value=BAZ"])
+    assert(wrong.succeeded == false, "an enum argument should reject a value outside the enum")
+    assert(
+      wrong.stderr.contains("invalid argument \"BAZ\" for \"--value\" flag: value should be one of BAR,FOO,GAR"),
+      "the rejection should name the accepted values, got stderr:\n" + wrong.stderr,
+    )
+  }
+
+  """
+  A module works with the `Req` GraphQL client adapter.
+  """
+  pub reqAdapterCheck(ws: Workspace!): Void @check {
+    fixture(ws, "req-adapter")
+      .assertJsonString(
+        ["container-echo", "--string-arg", "hello-from-req-adapter", "stdout"],
+        "hello-from-req-adapter\n",
+        "the module should reach the engine through the Req adapter",
+      )
+  }
+
+  """
+  Functions annotated with `@check true` are discovered and run as checks.
+  """
+  pub checkFunctionsCheck(ws: Workspace!): Void @check {
+    let checks = fixture(ws, "hello-with-checks")
+
+    let listed = checks.check(["-l"])
+    listed.assertSuccess
+    let names = listed.output
+    assert(names.contains("passing-check"), "passing-check should be listed: " + names)
+    assert(names.contains("failing-check"), "failing-check should be listed: " + names)
+    assert(names.contains("passing-container"), "passing-container should be listed: " + names)
+    assert(names.contains("failing-container"), "failing-container should be listed: " + names)
+
+    let passing = checks.check(["passing*"])
+    passing.assertSuccess
+    assert(passing.matches(`passing-check.*OK`), "passing-check should report OK:\n" + passing.output)
+    assert(passing.matches(`passing-container.*OK`), "passing-container should report OK:\n" + passing.output)
+
+    let failing = checks.check(["failing*"])
+    failing.assertFailure
+    assert(failing.matches(`failing-check.*ERROR`), "failing-check should report ERROR:\n" + failing.output)
+    assert(failing.matches(`failing-container.*ERROR`), "failing-container should report ERROR:\n" + failing.output)
+  }
+}
