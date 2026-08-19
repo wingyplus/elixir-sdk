@@ -284,7 +284,7 @@ defmodule Dagger.Mod.ModuleTest do
     end
 
     test "accept and return custom enum", %{dag: dag} do
-      assert {:ok, [scan, enum_opt]} =
+      assert {:ok, [scan, _enum_opt]} =
                root_object(dag, CustomEnum) |> Dagger.ObjectTypeDef.functions()
 
       assert {:ok, [arg]} = Dagger.Function.args(scan)

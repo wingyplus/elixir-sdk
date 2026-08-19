@@ -4,7 +4,7 @@ defmodule Dagger.Codegen.ElixirGenerator.TypeTest do
   alias Dagger.Codegen.ElixirGenerator.Type
   alias Dagger.Codegen.Introspection.Types.TypeRef
 
-  defp ref(kind, name \\ nil, of_type \\ nil),
+  defp ref(kind, name, of_type \\ nil),
     do: %TypeRef{kind: kind, name: name, of_type: of_type}
 
   defp non_null(inner), do: ref("NON_NULL", nil, inner)
