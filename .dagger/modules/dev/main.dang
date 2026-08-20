@@ -14,7 +14,7 @@ type Dev {
   Elixir image the checks run on. `syncImage` propagates this to the Dang modules
   that pin the same image.
   """
-  pub baseImage: String! = "elixir:1.19.5-otp-28-alpine@sha256:1747b3595b6742d2273d18608203457d5b925000cd38aca40c76e23c64d44def"
+  pub baseImage: String! = "elixir:1.20.2-otp-29-alpine@sha256:c68e45a3840f5cec60b9485cf3af8e82d3d749793a2eb4b442628e6ba9711b6f"
 
   """
   Path of the Elixir client library within this repository.
