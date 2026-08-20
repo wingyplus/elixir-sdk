@@ -20,7 +20,7 @@ defmodule Dagger.Exportable do
   @spec export(t(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def export(%__MODULE__{} = exportable, path) do
     query_builder =
-      exportable.query_builder |> QB.select("export") |> QB.put_arg("path", path)
+      exportable.query_builder |> QB.select("export", path: path)
 
     Client.execute(exportable.client, query_builder)
   end
@@ -50,8 +50,7 @@ defimpl Nestru.Decoder, for: Dagger.Exportable do
      %Dagger.Exportable{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Exportable"),
        client: dag.client
      }}

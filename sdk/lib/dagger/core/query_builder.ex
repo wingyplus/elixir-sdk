@@ -1,48 +1,74 @@
 defmodule Dagger.Core.QueryBuilder do
   @moduledoc false
 
+  @typedoc """
+  A single field name, or the set of leaf fields a query ends with.
+  """
+  @type name :: String.t() | [String.t()]
+
+  @typedoc """
+  Arguments to a field, keyed by the schema's own names.
+  """
+  @type args :: [{atom() | String.t(), term()}]
+
   @type t :: %__MODULE__{
-          name: String.t() | nil,
-          args: map() | nil,
-          prev: t() | nil,
-          alias: String.t()
+          name: name() | nil,
+          args: args(),
+          prev: t() | nil
         }
 
-  defstruct [:name, :args, :prev, alias: ""]
+  defstruct [:name, :prev, args: []]
 
   def query(), do: %__MODULE__{}
 
-  def select(%__MODULE__{} = selection, name) when is_binary(name) do
-    select_with_alias(selection, "", name)
-  end
+  @doc """
+  Select `name`, optionally with `args`.
 
-  def select_with_alias(%__MODULE__{} = selection, alias, name)
-      when is_binary(alias) and is_binary(name) do
+  An argument whose value is `nil` is left out of the query entirely, which is
+  what an unset optional argument means. To send a literal `null`, nest it: a
+  `nil` inside a list or an input object is encoded as one.
+  """
+  def select(%__MODULE__{} = selection, name, args \\ [])
+      when is_binary(name) and is_list(args) do
     %__MODULE__{
       name: name,
-      alias: alias,
-      prev: selection
+      args: reject_unset(args),
+      prev: selectable!(selection)
+    }
+  end
+
+  @doc """
+  Select a set of leaf fields, `envVariables { id name value }` say.
+
+  This is where a query ends: a node holding more than one field has no single
+  field for a further selection to hang from, so `select/3`, `select_fields/2`
+  and `inline_fragment/2` all refuse to extend one. The response for the
+  selection *above* it is what `Dagger.Core.Client.execute/2` returns - a map of
+  the fields, or a list of such maps - so a leaf set contributes nothing to
+  `path/1`.
+  """
+  def select_fields(%__MODULE__{} = selection, [_ | _] = names) do
+    %__MODULE__{
+      name: names,
+      prev: selectable!(selection)
     }
   end
 
   def inline_fragment(%__MODULE__{} = selection, type_name) when is_binary(type_name) do
     %__MODULE__{
       name: "... on #{type_name}",
-      prev: selection
+      prev: selectable!(selection)
     }
   end
 
-  def put_arg(%__MODULE__{args: args} = selection, name, value) when is_binary(name) do
-    args = args || %{}
+  defp selectable!(%__MODULE__{name: name} = selection) when not is_list(name), do: selection
 
-    %{selection | args: Map.put(args, name, value)}
+  defp selectable!(%__MODULE__{name: names}) do
+    raise ArgumentError,
+          "cannot select below the leaf fields #{inspect(names)}: a query ends there"
   end
 
-  def maybe_put_arg(%__MODULE__{} = selection, _name, nil), do: selection
-
-  def maybe_put_arg(%__MODULE__{} = selection, name, value) do
-    put_arg(selection, name, value)
-  end
+  defp reject_unset(args), do: Enum.reject(args, fn {_name, value} -> is_nil(value) end)
 
   def build(%__MODULE__{} = selection) do
     # The whole query is assembled as iodata and copied into a binary once, at
@@ -57,26 +83,27 @@ defmodule Dagger.Core.QueryBuilder do
     {["query" | acc], depth}
   end
 
-  defp build_fields(
-         %__MODULE__{prev: selection, name: name, args: args, alias: alias},
-         acc,
-         depth
-       ) do
-    build_fields(selection, [[build_alias(alias), name | build_args(args)] | acc], depth + 1)
+  defp build_fields(%__MODULE__{prev: selection, name: name, args: args}, acc, depth) do
+    build_fields(selection, [[build_name(name) | build_args(args)] | acc], depth + 1)
   end
 
-  defp build_alias(""), do: []
-  defp build_alias(alias), do: [alias, ?:]
+  defp build_name(names) when is_list(names), do: Enum.intersperse(names, ?\s)
+  defp build_name(name), do: name
 
-  defp build_args(nil), do: []
+  defp build_args([]), do: []
 
   defp build_args(args) do
-    fun = fn {name, value} -> [name, ?:, encode_value(value)] end
+    fun = fn {name, value} -> [arg_name(name), ?:, encode_value(value)] end
     [?(, Enum.map_intersperse(args, ?,, fun), ?)]
   end
 
-  # `null` only shows up when an argument is explicitly set to it:
-  # `maybe_put_arg/3` drops the argument instead.
+  # Generated code names arguments with the schema's own camel case atoms; a
+  # binary is accepted too, and costs nothing to write out.
+  defp arg_name(name) when is_atom(name), do: Atom.to_string(name)
+  defp arg_name(name), do: name
+
+  # `null` is only reachable for a value nested inside a list or an input
+  # object: `select/3` drops an argument that is `nil` rather than sending one.
   defp encode_value(nil), do: "null"
 
   defp encode_value(value) when is_atom(value),
@@ -197,14 +224,23 @@ defmodule Dagger.Core.QueryBuilder do
     defp unicode_escape(unquote(char)), do: unquote("\\u00" <> Base.encode16(<<char>>))
   end
 
+  @doc """
+  The names to follow through the response to reach what the query selected.
+
+  Inline fragments are skipped - they do not appear in the response - and so is
+  a trailing leaf field set, whose fields are the caller's to read.
+  """
   def path(selection) do
     path(selection, [])
   end
 
-  def path(%__MODULE__{prev: nil, name: nil}, acc), do: acc
+  defp path(%__MODULE__{prev: nil, name: nil}, acc), do: acc
 
-  def path(%__MODULE__{prev: selection, name: "... on " <> _}, acc),
+  defp path(%__MODULE__{prev: selection, name: "... on " <> _}, acc),
     do: path(selection, acc)
 
-  def path(%__MODULE__{prev: selection, name: name}, acc), do: path(selection, [name | acc])
+  defp path(%__MODULE__{prev: selection, name: names}, acc) when is_list(names),
+    do: path(selection, acc)
+
+  defp path(%__MODULE__{prev: selection, name: name}, acc), do: path(selection, [name | acc])
 end

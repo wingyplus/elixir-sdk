@@ -43,7 +43,7 @@ defmodule Dagger.EnumTypeDef do
   @spec members(t()) :: {:ok, [Dagger.EnumValueTypeDef.t()]} | {:error, term()}
   def members(%__MODULE__{} = enum_type_def) do
     query_builder =
-      enum_type_def.query_builder |> QB.select("members") |> QB.select("id")
+      enum_type_def.query_builder |> QB.select("members") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(enum_type_def.client, query_builder) do
       {:ok,
@@ -51,8 +51,7 @@ defmodule Dagger.EnumTypeDef do
          %Dagger.EnumValueTypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("EnumValueTypeDef"),
            client: enum_type_def.client
          }
@@ -105,7 +104,7 @@ defmodule Dagger.EnumTypeDef do
   @spec values(t()) :: {:ok, [Dagger.EnumValueTypeDef.t()]} | {:error, term()}
   def values(%__MODULE__{} = enum_type_def) do
     query_builder =
-      enum_type_def.query_builder |> QB.select("values") |> QB.select("id")
+      enum_type_def.query_builder |> QB.select("values") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(enum_type_def.client, query_builder) do
       {:ok,
@@ -113,8 +112,7 @@ defmodule Dagger.EnumTypeDef do
          %Dagger.EnumValueTypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("EnumValueTypeDef"),
            client: enum_type_def.client
          }
@@ -139,8 +137,7 @@ defimpl Nestru.Decoder, for: Dagger.EnumTypeDef do
      %Dagger.EnumTypeDef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("EnumTypeDef"),
        client: dag.client
      }}

@@ -25,7 +25,7 @@ defmodule Dagger.Env do
   @spec check(t(), String.t()) :: Dagger.Check.t()
   def check(%__MODULE__{} = env, name) do
     query_builder =
-      env.query_builder |> QB.select("check") |> QB.put_arg("name", name)
+      env.query_builder |> QB.select("check", name: name)
 
     %Dagger.Check{
       query_builder: query_builder,
@@ -45,9 +45,10 @@ defmodule Dagger.Env do
   def checks(%__MODULE__{} = env, optional_args \\ []) do
     query_builder =
       env.query_builder
-      |> QB.select("checks")
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("noGenerate", optional_args[:no_generate])
+      |> QB.select("checks",
+        include: optional_args[:include],
+        noGenerate: optional_args[:no_generate]
+      )
 
     %Dagger.CheckGroup{
       query_builder: query_builder,
@@ -72,7 +73,7 @@ defmodule Dagger.Env do
   @spec input(t(), String.t()) :: Dagger.Binding.t()
   def input(%__MODULE__{} = env, name) do
     query_builder =
-      env.query_builder |> QB.select("input") |> QB.put_arg("name", name)
+      env.query_builder |> QB.select("input", name: name)
 
     %Dagger.Binding{
       query_builder: query_builder,
@@ -86,7 +87,7 @@ defmodule Dagger.Env do
   @spec inputs(t()) :: {:ok, [Dagger.Binding.t()]} | {:error, term()}
   def inputs(%__MODULE__{} = env) do
     query_builder =
-      env.query_builder |> QB.select("inputs") |> QB.select("id")
+      env.query_builder |> QB.select("inputs") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(env.client, query_builder) do
       {:ok,
@@ -94,8 +95,7 @@ defmodule Dagger.Env do
          %Dagger.Binding{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Binding"),
            client: env.client
          }
@@ -109,7 +109,7 @@ defmodule Dagger.Env do
   @spec output(t(), String.t()) :: Dagger.Binding.t()
   def output(%__MODULE__{} = env, name) do
     query_builder =
-      env.query_builder |> QB.select("output") |> QB.put_arg("name", name)
+      env.query_builder |> QB.select("output", name: name)
 
     %Dagger.Binding{
       query_builder: query_builder,
@@ -123,7 +123,7 @@ defmodule Dagger.Env do
   @spec outputs(t()) :: {:ok, [Dagger.Binding.t()]} | {:error, term()}
   def outputs(%__MODULE__{} = env) do
     query_builder =
-      env.query_builder |> QB.select("outputs") |> QB.select("id")
+      env.query_builder |> QB.select("outputs") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(env.client, query_builder) do
       {:ok,
@@ -131,8 +131,7 @@ defmodule Dagger.Env do
          %Dagger.Binding{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Binding"),
            client: env.client
          }
@@ -150,9 +149,7 @@ defmodule Dagger.Env do
   @spec services(t(), [{:include, [String.t()]}]) :: Dagger.UpGroup.t()
   def services(%__MODULE__{} = env, optional_args \\ []) do
     query_builder =
-      env.query_builder
-      |> QB.select("services")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      env.query_builder |> QB.select("services", include: optional_args[:include])
 
     %Dagger.UpGroup{
       query_builder: query_builder,
@@ -167,10 +164,11 @@ defmodule Dagger.Env do
   def with_address_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withAddressInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withAddressInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -184,10 +182,7 @@ defmodule Dagger.Env do
   @spec with_address_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_address_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withAddressOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withAddressOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -203,10 +198,11 @@ defmodule Dagger.Env do
   def with_cache_volume_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCacheVolumeInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCacheVolumeInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -221,9 +217,7 @@ defmodule Dagger.Env do
   def with_cache_volume_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCacheVolumeOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withCacheVolumeOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -238,10 +232,11 @@ defmodule Dagger.Env do
   def with_changeset_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withChangesetInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withChangesetInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -255,10 +250,7 @@ defmodule Dagger.Env do
   @spec with_changeset_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_changeset_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withChangesetOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withChangesetOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -274,10 +266,11 @@ defmodule Dagger.Env do
   def with_check_group_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCheckGroupInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCheckGroupInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -291,10 +284,7 @@ defmodule Dagger.Env do
   @spec with_check_group_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_check_group_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withCheckGroupOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withCheckGroupOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -309,10 +299,11 @@ defmodule Dagger.Env do
   def with_check_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCheckInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCheckInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -326,10 +317,7 @@ defmodule Dagger.Env do
   @spec with_check_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_check_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withCheckOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withCheckOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -344,10 +332,11 @@ defmodule Dagger.Env do
   def with_cloud_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCloudInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCloudInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -361,10 +350,7 @@ defmodule Dagger.Env do
   @spec with_cloud_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_cloud_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withCloudOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withCloudOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -379,10 +365,11 @@ defmodule Dagger.Env do
   def with_container_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withContainerInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withContainerInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -396,10 +383,7 @@ defmodule Dagger.Env do
   @spec with_container_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_container_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withContainerOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withContainerOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -435,10 +419,11 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_client_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKClientInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKClientInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -453,9 +438,7 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_client_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKClientOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKClientOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -475,10 +458,11 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -498,10 +482,11 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_module_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKModuleInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKModuleInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -516,9 +501,7 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_module_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKModuleOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKModuleOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -533,9 +516,7 @@ defmodule Dagger.Env do
   def with_current_module_as_sdk_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withCurrentModuleAsSDKOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withCurrentModuleAsSDKOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -550,10 +531,11 @@ defmodule Dagger.Env do
   def with_diff_stat_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withDiffStatInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withDiffStatInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -567,10 +549,7 @@ defmodule Dagger.Env do
   @spec with_diff_stat_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_diff_stat_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withDiffStatOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withDiffStatOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -585,10 +564,11 @@ defmodule Dagger.Env do
   def with_directory_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withDirectoryInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withDirectoryInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -602,10 +582,7 @@ defmodule Dagger.Env do
   @spec with_directory_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_directory_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withDirectoryOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withDirectoryOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -620,10 +597,11 @@ defmodule Dagger.Env do
   def with_env_file_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withEnvFileInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withEnvFileInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -637,10 +615,7 @@ defmodule Dagger.Env do
   @spec with_env_file_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_env_file_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withEnvFileOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withEnvFileOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -655,10 +630,11 @@ defmodule Dagger.Env do
   def with_env_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withEnvInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withEnvInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -672,10 +648,7 @@ defmodule Dagger.Env do
   @spec with_env_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_env_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withEnvOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withEnvOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -690,10 +663,11 @@ defmodule Dagger.Env do
   def with_file_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withFileInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withFileInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -707,10 +681,7 @@ defmodule Dagger.Env do
   @spec with_file_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_file_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withFileOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withFileOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -726,10 +697,11 @@ defmodule Dagger.Env do
   def with_generator_group_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGeneratorGroupInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withGeneratorGroupInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -744,9 +716,7 @@ defmodule Dagger.Env do
   def with_generator_group_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGeneratorGroupOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withGeneratorGroupOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -761,10 +731,11 @@ defmodule Dagger.Env do
   def with_generator_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGeneratorInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withGeneratorInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -778,10 +749,7 @@ defmodule Dagger.Env do
   @spec with_generator_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_generator_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withGeneratorOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withGeneratorOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -796,10 +764,11 @@ defmodule Dagger.Env do
   def with_git_ref_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGitRefInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withGitRefInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -813,10 +782,7 @@ defmodule Dagger.Env do
   @spec with_git_ref_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_git_ref_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withGitRefOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withGitRefOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -832,10 +798,11 @@ defmodule Dagger.Env do
   def with_git_repository_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGitRepositoryInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withGitRepositoryInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -850,9 +817,7 @@ defmodule Dagger.Env do
   def with_git_repository_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withGitRepositoryOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withGitRepositoryOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -867,10 +832,11 @@ defmodule Dagger.Env do
   def with_http_state_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withHTTPStateInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withHTTPStateInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -884,10 +850,7 @@ defmodule Dagger.Env do
   @spec with_http_state_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_http_state_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withHTTPStateOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withHTTPStateOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -902,10 +865,11 @@ defmodule Dagger.Env do
   def with_json_value_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withJSONValueInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withJSONValueInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -919,10 +883,7 @@ defmodule Dagger.Env do
   @spec with_json_value_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_json_value_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withJSONValueOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withJSONValueOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -938,10 +899,11 @@ defmodule Dagger.Env do
   def with_llm_content_block_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withLLMContentBlockInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withLLMContentBlockInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -956,9 +918,7 @@ defmodule Dagger.Env do
   def with_llm_content_block_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withLLMContentBlockOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withLLMContentBlockOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -974,10 +934,11 @@ defmodule Dagger.Env do
   def with_llm_message_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withLLMMessageInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withLLMMessageInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -991,10 +952,7 @@ defmodule Dagger.Env do
   @spec with_llm_message_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_llm_message_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withLLMMessageOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withLLMMessageOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1010,9 +968,7 @@ defmodule Dagger.Env do
   @spec with_main_module(t(), Dagger.Module.t()) :: Dagger.Env.t()
   def with_main_module(%__MODULE__{} = env, module) do
     query_builder =
-      env.query_builder
-      |> QB.select("withMainModule")
-      |> QB.put_arg("module", Dagger.ID.id!(module))
+      env.query_builder |> QB.select("withMainModule", module: Dagger.ID.id!(module))
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1031,7 +987,7 @@ defmodule Dagger.Env do
   @spec with_module(t(), Dagger.Module.t()) :: Dagger.Env.t()
   def with_module(%__MODULE__{} = env, module) do
     query_builder =
-      env.query_builder |> QB.select("withModule") |> QB.put_arg("module", Dagger.ID.id!(module))
+      env.query_builder |> QB.select("withModule", module: Dagger.ID.id!(module))
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1051,10 +1007,11 @@ defmodule Dagger.Env do
   def with_module_config_client_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withModuleConfigClientInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withModuleConfigClientInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1069,9 +1026,7 @@ defmodule Dagger.Env do
   def with_module_config_client_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withModuleConfigClientOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withModuleConfigClientOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1086,10 +1041,11 @@ defmodule Dagger.Env do
   def with_module_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withModuleInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withModuleInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1103,10 +1059,7 @@ defmodule Dagger.Env do
   @spec with_module_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_module_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withModuleOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withModuleOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1122,10 +1075,11 @@ defmodule Dagger.Env do
   def with_module_source_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withModuleSourceInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withModuleSourceInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1140,9 +1094,7 @@ defmodule Dagger.Env do
   def with_module_source_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withModuleSourceOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withModuleSourceOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1157,10 +1109,11 @@ defmodule Dagger.Env do
   def with_schema_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSchemaInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withSchemaInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1174,10 +1127,7 @@ defmodule Dagger.Env do
   @spec with_schema_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_schema_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withSchemaOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withSchemaOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1193,10 +1143,11 @@ defmodule Dagger.Env do
   def with_search_result_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSearchResultInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withSearchResultInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1211,9 +1162,7 @@ defmodule Dagger.Env do
   def with_search_result_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSearchResultOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withSearchResultOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1229,10 +1178,11 @@ defmodule Dagger.Env do
   def with_search_submatch_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSearchSubmatchInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withSearchSubmatchInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1247,9 +1197,7 @@ defmodule Dagger.Env do
   def with_search_submatch_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSearchSubmatchOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withSearchSubmatchOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1264,10 +1212,11 @@ defmodule Dagger.Env do
   def with_secret_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSecretInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withSecretInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1281,10 +1230,7 @@ defmodule Dagger.Env do
   @spec with_secret_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_secret_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withSecretOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withSecretOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1299,10 +1245,11 @@ defmodule Dagger.Env do
   def with_service_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withServiceInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withServiceInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1316,10 +1263,7 @@ defmodule Dagger.Env do
   @spec with_service_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_service_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withServiceOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withServiceOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1334,10 +1278,11 @@ defmodule Dagger.Env do
   def with_socket_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withSocketInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withSocketInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1351,10 +1296,7 @@ defmodule Dagger.Env do
   @spec with_socket_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_socket_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withSocketOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withSocketOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1369,10 +1311,11 @@ defmodule Dagger.Env do
   def with_stat_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withStatInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withStatInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1386,10 +1329,7 @@ defmodule Dagger.Env do
   @spec with_stat_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_stat_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withStatOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withStatOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1404,10 +1344,7 @@ defmodule Dagger.Env do
   def with_string_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withStringInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", value)
-      |> QB.put_arg("description", description)
+      |> QB.select("withStringInput", name: name, value: value, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1421,10 +1358,7 @@ defmodule Dagger.Env do
   @spec with_string_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_string_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withStringOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withStringOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1439,10 +1373,11 @@ defmodule Dagger.Env do
   def with_up_group_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withUpGroupInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withUpGroupInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1456,10 +1391,7 @@ defmodule Dagger.Env do
   @spec with_up_group_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_up_group_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withUpGroupOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withUpGroupOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1474,10 +1406,11 @@ defmodule Dagger.Env do
   def with_up_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withUpInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withUpInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1491,10 +1424,7 @@ defmodule Dagger.Env do
   @spec with_up_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_up_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withUpOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withUpOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1509,10 +1439,11 @@ defmodule Dagger.Env do
   def with_volume_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withVolumeInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withVolumeInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1526,10 +1457,7 @@ defmodule Dagger.Env do
   @spec with_volume_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_volume_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withVolumeOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withVolumeOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1543,9 +1471,7 @@ defmodule Dagger.Env do
   @spec with_workspace(t(), Dagger.Directory.t()) :: Dagger.Env.t()
   def with_workspace(%__MODULE__{} = env, workspace) do
     query_builder =
-      env.query_builder
-      |> QB.select("withWorkspace")
-      |> QB.put_arg("workspace", Dagger.ID.id!(workspace))
+      env.query_builder |> QB.select("withWorkspace", workspace: Dagger.ID.id!(workspace))
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1561,10 +1487,11 @@ defmodule Dagger.Env do
   def with_workspace_git_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceGitInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceGitInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1579,9 +1506,7 @@ defmodule Dagger.Env do
   def with_workspace_git_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceGitOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceGitOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1596,10 +1521,11 @@ defmodule Dagger.Env do
   def with_workspace_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1615,10 +1541,11 @@ defmodule Dagger.Env do
   def with_workspace_migration_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceMigrationInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceMigrationInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1633,9 +1560,7 @@ defmodule Dagger.Env do
   def with_workspace_migration_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceMigrationOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceMigrationOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1655,10 +1580,11 @@ defmodule Dagger.Env do
   def with_workspace_migration_step_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceMigrationStepInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceMigrationStepInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1673,9 +1599,7 @@ defmodule Dagger.Env do
   def with_workspace_migration_step_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceMigrationStepOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceMigrationStepOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1691,10 +1615,11 @@ defmodule Dagger.Env do
   def with_workspace_module_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceModuleInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceModuleInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1709,9 +1634,7 @@ defmodule Dagger.Env do
   def with_workspace_module_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceModuleOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceModuleOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1731,10 +1654,11 @@ defmodule Dagger.Env do
   def with_workspace_module_setting_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceModuleSettingInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceModuleSettingInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1749,9 +1673,7 @@ defmodule Dagger.Env do
   def with_workspace_module_setting_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceModuleSettingOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceModuleSettingOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1765,10 +1687,7 @@ defmodule Dagger.Env do
   @spec with_workspace_output(t(), String.t(), String.t()) :: Dagger.Env.t()
   def with_workspace_output(%__MODULE__{} = env, name, description) do
     query_builder =
-      env.query_builder
-      |> QB.select("withWorkspaceOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      env.query_builder |> QB.select("withWorkspaceOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1784,10 +1703,11 @@ defmodule Dagger.Env do
   def with_workspace_sdk_input(%__MODULE__{} = env, name, value, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceSDKInput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceSDKInput",
+        name: name,
+        value: Dagger.ID.id!(value),
+        description: description
+      )
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1802,9 +1722,7 @@ defmodule Dagger.Env do
   def with_workspace_sdk_output(%__MODULE__{} = env, name, description) do
     query_builder =
       env.query_builder
-      |> QB.select("withWorkspaceSDKOutput")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("description", description)
+      |> QB.select("withWorkspaceSDKOutput", name: name, description: description)
 
     %Dagger.Env{
       query_builder: query_builder,
@@ -1854,8 +1772,7 @@ defimpl Nestru.Decoder, for: Dagger.Env do
      %Dagger.Env{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Env"),
        client: dag.client
      }}

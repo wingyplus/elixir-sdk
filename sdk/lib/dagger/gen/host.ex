@@ -21,7 +21,7 @@ defmodule Dagger.Host do
   @spec container_image(t(), String.t()) :: Dagger.Container.t()
   def container_image(%__MODULE__{} = host, name) do
     query_builder =
-      host.query_builder |> QB.select("containerImage") |> QB.put_arg("name", name)
+      host.query_builder |> QB.select("containerImage", name: name)
 
     %Dagger.Container{
       query_builder: query_builder,
@@ -41,12 +41,13 @@ defmodule Dagger.Host do
   def directory(%__MODULE__{} = host, path, optional_args \\ []) do
     query_builder =
       host.query_builder
-      |> QB.select("directory")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("noCache", optional_args[:no_cache])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
+      |> QB.select("directory",
+        path: path,
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        noCache: optional_args[:no_cache],
+        gitignore: optional_args[:gitignore]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -60,10 +61,7 @@ defmodule Dagger.Host do
   @spec file(t(), String.t(), [{:no_cache, boolean() | nil}]) :: Dagger.File.t()
   def file(%__MODULE__{} = host, path, optional_args \\ []) do
     query_builder =
-      host.query_builder
-      |> QB.select("file")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("noCache", optional_args[:no_cache])
+      host.query_builder |> QB.select("file", path: path, noCache: optional_args[:no_cache])
 
     %Dagger.File{
       query_builder: query_builder,
@@ -78,10 +76,7 @@ defmodule Dagger.Host do
           {:ok, String.t() | nil} | {:error, term()}
   def find_up(%__MODULE__{} = host, name, optional_args \\ []) do
     query_builder =
-      host.query_builder
-      |> QB.select("findUp")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("noCache", optional_args[:no_cache])
+      host.query_builder |> QB.select("findUp", name: name, noCache: optional_args[:no_cache])
 
     Client.execute(host.client, query_builder)
   end
@@ -103,10 +98,7 @@ defmodule Dagger.Host do
   @spec service(t(), [Dagger.PortForward.t()], [{:host, String.t() | nil}]) :: Dagger.Service.t()
   def service(%__MODULE__{} = host, ports, optional_args \\ []) do
     query_builder =
-      host.query_builder
-      |> QB.select("service")
-      |> QB.put_arg("ports", ports)
-      |> QB.maybe_put_arg("host", optional_args[:host])
+      host.query_builder |> QB.select("service", ports: ports, host: optional_args[:host])
 
     %Dagger.Service{
       query_builder: query_builder,
@@ -124,10 +116,11 @@ defmodule Dagger.Host do
   def tunnel(%__MODULE__{} = host, service, optional_args \\ []) do
     query_builder =
       host.query_builder
-      |> QB.select("tunnel")
-      |> QB.put_arg("service", Dagger.ID.id!(service))
-      |> QB.maybe_put_arg("native", optional_args[:native])
-      |> QB.maybe_put_arg("ports", optional_args[:ports])
+      |> QB.select("tunnel",
+        service: Dagger.ID.id!(service),
+        native: optional_args[:native],
+        ports: optional_args[:ports]
+      )
 
     %Dagger.Service{
       query_builder: query_builder,
@@ -141,7 +134,7 @@ defmodule Dagger.Host do
   @spec unix_socket(t(), String.t()) :: Dagger.Socket.t()
   def unix_socket(%__MODULE__{} = host, path) do
     query_builder =
-      host.query_builder |> QB.select("unixSocket") |> QB.put_arg("path", path)
+      host.query_builder |> QB.select("unixSocket", path: path)
 
     %Dagger.Socket{
       query_builder: query_builder,
@@ -166,8 +159,7 @@ defimpl Nestru.Decoder, for: Dagger.Host do
      %Dagger.Host{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Host"),
        client: dag.client
      }}

@@ -44,9 +44,7 @@ defmodule Dagger.Schema do
   def merge(%__MODULE__{} = schema, module_types, module_name) do
     query_builder =
       schema.query_builder
-      |> QB.select("merge")
-      |> QB.put_arg("moduleTypes", module_types)
-      |> QB.put_arg("moduleName", module_name)
+      |> QB.select("merge", moduleTypes: module_types, moduleName: module_name)
 
     %Dagger.Schema{
       query_builder: query_builder,
@@ -71,8 +69,7 @@ defimpl Nestru.Decoder, for: Dagger.Schema do
      %Dagger.Schema{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Schema"),
        client: dag.client
      }}

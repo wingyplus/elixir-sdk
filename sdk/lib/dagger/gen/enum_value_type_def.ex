@@ -101,8 +101,7 @@ defimpl Nestru.Decoder, for: Dagger.EnumValueTypeDef do
      %Dagger.EnumValueTypeDef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("EnumValueTypeDef"),
        client: dag.client
      }}

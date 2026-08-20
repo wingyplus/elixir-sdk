@@ -25,7 +25,7 @@ defmodule Dagger.Module do
   @spec check(t(), String.t()) :: Dagger.Check.t()
   def check(%__MODULE__{} = module, name) do
     query_builder =
-      module.query_builder |> QB.select("check") |> QB.put_arg("name", name)
+      module.query_builder |> QB.select("check", name: name)
 
     %Dagger.Check{
       query_builder: query_builder,
@@ -45,9 +45,10 @@ defmodule Dagger.Module do
   def checks(%__MODULE__{} = module, optional_args \\ []) do
     query_builder =
       module.query_builder
-      |> QB.select("checks")
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("noGenerate", optional_args[:no_generate])
+      |> QB.select("checks",
+        include: optional_args[:include],
+        noGenerate: optional_args[:no_generate]
+      )
 
     %Dagger.CheckGroup{
       query_builder: query_builder,
@@ -61,7 +62,7 @@ defmodule Dagger.Module do
   @spec dependencies(t()) :: {:ok, [Dagger.Module.t()]} | {:error, term()}
   def dependencies(%__MODULE__{} = module) do
     query_builder =
-      module.query_builder |> QB.select("dependencies") |> QB.select("id")
+      module.query_builder |> QB.select("dependencies") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module.client, query_builder) do
       {:ok,
@@ -69,8 +70,7 @@ defmodule Dagger.Module do
          %Dagger.Module{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Module"),
            client: module.client
          }
@@ -95,7 +95,7 @@ defmodule Dagger.Module do
   @spec enums(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
   def enums(%__MODULE__{} = module) do
     query_builder =
-      module.query_builder |> QB.select("enums") |> QB.select("id")
+      module.query_builder |> QB.select("enums") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module.client, query_builder) do
       {:ok,
@@ -103,8 +103,7 @@ defmodule Dagger.Module do
          %Dagger.TypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("TypeDef"),
            client: module.client
          }
@@ -136,7 +135,7 @@ defmodule Dagger.Module do
   @spec generator(t(), String.t()) :: Dagger.Generator.t()
   def generator(%__MODULE__{} = module, name) do
     query_builder =
-      module.query_builder |> QB.select("generator") |> QB.put_arg("name", name)
+      module.query_builder |> QB.select("generator", name: name)
 
     %Dagger.Generator{
       query_builder: query_builder,
@@ -154,9 +153,7 @@ defmodule Dagger.Module do
   @spec generators(t(), [{:include, [String.t()]}]) :: Dagger.GeneratorGroup.t()
   def generators(%__MODULE__{} = module, optional_args \\ []) do
     query_builder =
-      module.query_builder
-      |> QB.select("generators")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      module.query_builder |> QB.select("generators", include: optional_args[:include])
 
     %Dagger.GeneratorGroup{
       query_builder: query_builder,
@@ -181,7 +178,7 @@ defmodule Dagger.Module do
   @spec interfaces(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
   def interfaces(%__MODULE__{} = module) do
     query_builder =
-      module.query_builder |> QB.select("interfaces") |> QB.select("id")
+      module.query_builder |> QB.select("interfaces") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module.client, query_builder) do
       {:ok,
@@ -189,8 +186,7 @@ defmodule Dagger.Module do
          %Dagger.TypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("TypeDef"),
            client: module.client
          }
@@ -233,7 +229,7 @@ defmodule Dagger.Module do
   @spec objects(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
   def objects(%__MODULE__{} = module) do
     query_builder =
-      module.query_builder |> QB.select("objects") |> QB.select("id")
+      module.query_builder |> QB.select("objects") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module.client, query_builder) do
       {:ok,
@@ -241,8 +237,7 @@ defmodule Dagger.Module do
          %Dagger.TypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("TypeDef"),
            client: module.client
          }
@@ -288,9 +283,10 @@ defmodule Dagger.Module do
   def serve(%__MODULE__{} = module, optional_args \\ []) do
     query_builder =
       module.query_builder
-      |> QB.select("serve")
-      |> QB.maybe_put_arg("includeDependencies", optional_args[:include_dependencies])
-      |> QB.maybe_put_arg("entrypoint", optional_args[:entrypoint])
+      |> QB.select("serve",
+        includeDependencies: optional_args[:include_dependencies],
+        entrypoint: optional_args[:entrypoint]
+      )
 
     case Client.execute(module.client, query_builder) do
       {:ok, _} -> :ok
@@ -308,9 +304,7 @@ defmodule Dagger.Module do
   @spec services(t(), [{:include, [String.t()]}]) :: Dagger.UpGroup.t()
   def services(%__MODULE__{} = module, optional_args \\ []) do
     query_builder =
-      module.query_builder
-      |> QB.select("services")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      module.query_builder |> QB.select("services", include: optional_args[:include])
 
     %Dagger.UpGroup{
       query_builder: query_builder,
@@ -345,8 +339,7 @@ defmodule Dagger.Module do
        %Dagger.Module{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Module"),
          client: module.client
        }}
@@ -373,9 +366,7 @@ defmodule Dagger.Module do
   @spec with_description(t(), String.t()) :: Dagger.Module.t()
   def with_description(%__MODULE__{} = module, description) do
     query_builder =
-      module.query_builder
-      |> QB.select("withDescription")
-      |> QB.put_arg("description", description)
+      module.query_builder |> QB.select("withDescription", description: description)
 
     %Dagger.Module{
       query_builder: query_builder,
@@ -389,7 +380,7 @@ defmodule Dagger.Module do
   @spec with_enum(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
   def with_enum(%__MODULE__{} = module, enum) do
     query_builder =
-      module.query_builder |> QB.select("withEnum") |> QB.put_arg("enum", Dagger.ID.id!(enum))
+      module.query_builder |> QB.select("withEnum", enum: Dagger.ID.id!(enum))
 
     %Dagger.Module{
       query_builder: query_builder,
@@ -403,9 +394,7 @@ defmodule Dagger.Module do
   @spec with_interface(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
   def with_interface(%__MODULE__{} = module, iface) do
     query_builder =
-      module.query_builder
-      |> QB.select("withInterface")
-      |> QB.put_arg("iface", Dagger.ID.id!(iface))
+      module.query_builder |> QB.select("withInterface", iface: Dagger.ID.id!(iface))
 
     %Dagger.Module{
       query_builder: query_builder,
@@ -419,9 +408,7 @@ defmodule Dagger.Module do
   @spec with_object(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
   def with_object(%__MODULE__{} = module, object) do
     query_builder =
-      module.query_builder
-      |> QB.select("withObject")
-      |> QB.put_arg("object", Dagger.ID.id!(object))
+      module.query_builder |> QB.select("withObject", object: Dagger.ID.id!(object))
 
     %Dagger.Module{
       query_builder: query_builder,
@@ -446,8 +433,7 @@ defimpl Nestru.Decoder, for: Dagger.Module do
      %Dagger.Module{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Module"),
        client: dag.client
      }}

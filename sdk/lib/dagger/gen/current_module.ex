@@ -23,9 +23,7 @@ defmodule Dagger.CurrentModule do
   @spec as_sdk(t(), Dagger.Workspace.t()) :: Dagger.CurrentModuleAsSDK.t()
   def as_sdk(%__MODULE__{} = current_module, workspace) do
     query_builder =
-      current_module.query_builder
-      |> QB.select("asSDK")
-      |> QB.put_arg("workspace", Dagger.ID.id!(workspace))
+      current_module.query_builder |> QB.select("asSDK", workspace: Dagger.ID.id!(workspace))
 
     %Dagger.CurrentModuleAsSDK{
       query_builder: query_builder,
@@ -39,7 +37,7 @@ defmodule Dagger.CurrentModule do
   @spec dependencies(t()) :: {:ok, [Dagger.Module.t()]} | {:error, term()}
   def dependencies(%__MODULE__{} = current_module) do
     query_builder =
-      current_module.query_builder |> QB.select("dependencies") |> QB.select("id")
+      current_module.query_builder |> QB.select("dependencies") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(current_module.client, query_builder) do
       {:ok,
@@ -47,8 +45,7 @@ defmodule Dagger.CurrentModule do
          %Dagger.Module{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Module"),
            client: current_module.client
          }
@@ -80,9 +77,7 @@ defmodule Dagger.CurrentModule do
   @spec generators(t(), [{:include, [String.t()]}]) :: Dagger.GeneratorGroup.t()
   def generators(%__MODULE__{} = current_module, optional_args \\ []) do
     query_builder =
-      current_module.query_builder
-      |> QB.select("generators")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      current_module.query_builder |> QB.select("generators", include: optional_args[:include])
 
     %Dagger.GeneratorGroup{
       query_builder: query_builder,
@@ -137,11 +132,12 @@ defmodule Dagger.CurrentModule do
   def workdir(%__MODULE__{} = current_module, path, optional_args \\ []) do
     query_builder =
       current_module.query_builder
-      |> QB.select("workdir")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
+      |> QB.select("workdir",
+        path: path,
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -155,7 +151,7 @@ defmodule Dagger.CurrentModule do
   @spec workdir_file(t(), String.t()) :: Dagger.File.t()
   def workdir_file(%__MODULE__{} = current_module, path) do
     query_builder =
-      current_module.query_builder |> QB.select("workdirFile") |> QB.put_arg("path", path)
+      current_module.query_builder |> QB.select("workdirFile", path: path)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -180,8 +176,7 @@ defimpl Nestru.Decoder, for: Dagger.CurrentModule do
      %Dagger.CurrentModule{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("CurrentModule"),
        client: dag.client
      }}

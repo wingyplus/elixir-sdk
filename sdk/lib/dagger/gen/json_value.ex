@@ -21,7 +21,7 @@ defmodule Dagger.JSONValue do
   @spec as_array(t()) :: {:ok, [Dagger.JSONValue.t()]} | {:error, term()}
   def as_array(%__MODULE__{} = json_value) do
     query_builder =
-      json_value.query_builder |> QB.select("asArray") |> QB.select("id")
+      json_value.query_builder |> QB.select("asArray") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(json_value.client, query_builder) do
       {:ok,
@@ -29,8 +29,7 @@ defmodule Dagger.JSONValue do
          %Dagger.JSONValue{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("JSONValue"),
            client: json_value.client
          }
@@ -79,9 +78,7 @@ defmodule Dagger.JSONValue do
   def contents(%__MODULE__{} = json_value, optional_args \\ []) do
     query_builder =
       json_value.query_builder
-      |> QB.select("contents")
-      |> QB.maybe_put_arg("pretty", optional_args[:pretty])
-      |> QB.maybe_put_arg("indent", optional_args[:indent])
+      |> QB.select("contents", pretty: optional_args[:pretty], indent: optional_args[:indent])
 
     Client.execute(json_value.client, query_builder)
   end
@@ -92,7 +89,7 @@ defmodule Dagger.JSONValue do
   @spec field(t(), [String.t()]) :: Dagger.JSONValue.t()
   def field(%__MODULE__{} = json_value, path) do
     query_builder =
-      json_value.query_builder |> QB.select("field") |> QB.put_arg("path", path)
+      json_value.query_builder |> QB.select("field", path: path)
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -128,7 +125,7 @@ defmodule Dagger.JSONValue do
   @spec new_boolean(t(), boolean()) :: Dagger.JSONValue.t()
   def new_boolean(%__MODULE__{} = json_value, value) do
     query_builder =
-      json_value.query_builder |> QB.select("newBoolean") |> QB.put_arg("value", value)
+      json_value.query_builder |> QB.select("newBoolean", value: value)
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -142,7 +139,7 @@ defmodule Dagger.JSONValue do
   @spec new_integer(t(), integer()) :: Dagger.JSONValue.t()
   def new_integer(%__MODULE__{} = json_value, value) do
     query_builder =
-      json_value.query_builder |> QB.select("newInteger") |> QB.put_arg("value", value)
+      json_value.query_builder |> QB.select("newInteger", value: value)
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -156,7 +153,7 @@ defmodule Dagger.JSONValue do
   @spec new_string(t(), String.t()) :: Dagger.JSONValue.t()
   def new_string(%__MODULE__{} = json_value, value) do
     query_builder =
-      json_value.query_builder |> QB.select("newString") |> QB.put_arg("value", value)
+      json_value.query_builder |> QB.select("newString", value: value)
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -170,7 +167,7 @@ defmodule Dagger.JSONValue do
   @spec with_contents(t(), Dagger.JSON.t()) :: Dagger.JSONValue.t()
   def with_contents(%__MODULE__{} = json_value, contents) do
     query_builder =
-      json_value.query_builder |> QB.select("withContents") |> QB.put_arg("contents", contents)
+      json_value.query_builder |> QB.select("withContents", contents: contents)
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -184,10 +181,7 @@ defmodule Dagger.JSONValue do
   @spec with_field(t(), [String.t()], Dagger.JSONValue.t()) :: Dagger.JSONValue.t()
   def with_field(%__MODULE__{} = json_value, path, value) do
     query_builder =
-      json_value.query_builder
-      |> QB.select("withField")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("value", Dagger.ID.id!(value))
+      json_value.query_builder |> QB.select("withField", path: path, value: Dagger.ID.id!(value))
 
     %Dagger.JSONValue{
       query_builder: query_builder,
@@ -212,8 +206,7 @@ defimpl Nestru.Decoder, for: Dagger.JSONValue do
      %Dagger.JSONValue{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("JSONValue"),
        client: dag.client
      }}

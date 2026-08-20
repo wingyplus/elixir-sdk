@@ -41,11 +41,12 @@ defmodule Dagger.Address do
   def directory(%__MODULE__{} = address, optional_args \\ []) do
     query_builder =
       address.query_builder
-      |> QB.select("directory")
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
-      |> QB.maybe_put_arg("noCache", optional_args[:no_cache])
+      |> QB.select("directory",
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore],
+        noCache: optional_args[:no_cache]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -65,11 +66,12 @@ defmodule Dagger.Address do
   def file(%__MODULE__{} = address, optional_args \\ []) do
     query_builder =
       address.query_builder
-      |> QB.select("file")
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
-      |> QB.maybe_put_arg("noCache", optional_args[:no_cache])
+      |> QB.select("file",
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore],
+        noCache: optional_args[:no_cache]
+      )
 
     %Dagger.File{
       query_builder: query_builder,
@@ -200,8 +202,7 @@ defimpl Nestru.Decoder, for: Dagger.Address do
      %Dagger.Address{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Address"),
        client: dag.client
      }}

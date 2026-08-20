@@ -46,7 +46,7 @@ defmodule Dagger.WorkspaceMigration do
   @spec steps(t()) :: {:ok, [Dagger.WorkspaceMigrationStep.t()]} | {:error, term()}
   def steps(%__MODULE__{} = workspace_migration) do
     query_builder =
-      workspace_migration.query_builder |> QB.select("steps") |> QB.select("id")
+      workspace_migration.query_builder |> QB.select("steps") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace_migration.client, query_builder) do
       {:ok,
@@ -54,8 +54,7 @@ defmodule Dagger.WorkspaceMigration do
          %Dagger.WorkspaceMigrationStep{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("WorkspaceMigrationStep"),
            client: workspace_migration.client
          }
@@ -80,8 +79,7 @@ defimpl Nestru.Decoder, for: Dagger.WorkspaceMigration do
      %Dagger.WorkspaceMigration{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("WorkspaceMigration"),
        client: dag.client
      }}

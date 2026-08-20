@@ -32,7 +32,7 @@ defmodule Dagger.FunctionCall do
   @spec input_args(t()) :: {:ok, [Dagger.FunctionCallArgValue.t()]} | {:error, term()}
   def input_args(%__MODULE__{} = function_call) do
     query_builder =
-      function_call.query_builder |> QB.select("inputArgs") |> QB.select("id")
+      function_call.query_builder |> QB.select("inputArgs") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(function_call.client, query_builder) do
       {:ok,
@@ -40,8 +40,7 @@ defmodule Dagger.FunctionCall do
          %Dagger.FunctionCallArgValue{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("FunctionCallArgValue"),
            client: function_call.client
          }
@@ -88,9 +87,7 @@ defmodule Dagger.FunctionCall do
   @spec return_error(t(), Dagger.Error.t()) :: :ok | {:error, term()}
   def return_error(%__MODULE__{} = function_call, error) do
     query_builder =
-      function_call.query_builder
-      |> QB.select("returnError")
-      |> QB.put_arg("error", Dagger.ID.id!(error))
+      function_call.query_builder |> QB.select("returnError", error: Dagger.ID.id!(error))
 
     case Client.execute(function_call.client, query_builder) do
       {:ok, _} -> :ok
@@ -104,7 +101,7 @@ defmodule Dagger.FunctionCall do
   @spec return_value(t(), Dagger.JSON.t()) :: :ok | {:error, term()}
   def return_value(%__MODULE__{} = function_call, value) do
     query_builder =
-      function_call.query_builder |> QB.select("returnValue") |> QB.put_arg("value", value)
+      function_call.query_builder |> QB.select("returnValue", value: value)
 
     case Client.execute(function_call.client, query_builder) do
       {:ok, _} -> :ok
@@ -129,8 +126,7 @@ defimpl Nestru.Decoder, for: Dagger.FunctionCall do
      %Dagger.FunctionCall{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("FunctionCall"),
        client: dag.client
      }}

@@ -35,8 +35,7 @@ defmodule Dagger.Syncer do
        %Dagger.Syncer{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Syncer"),
          client: syncer.client
        }}
@@ -60,8 +59,7 @@ defimpl Nestru.Decoder, for: Dagger.Syncer do
      %Dagger.Syncer{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Syncer"),
        client: dag.client
      }}

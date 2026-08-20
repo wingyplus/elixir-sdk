@@ -21,7 +21,7 @@ defmodule Dagger.LLMMessage do
   @spec content(t()) :: {:ok, [Dagger.LLMContentBlock.t()]} | {:error, term()}
   def content(%__MODULE__{} = llm_message) do
     query_builder =
-      llm_message.query_builder |> QB.select("content") |> QB.select("id")
+      llm_message.query_builder |> QB.select("content") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(llm_message.client, query_builder) do
       {:ok,
@@ -29,8 +29,7 @@ defmodule Dagger.LLMMessage do
          %Dagger.LLMContentBlock{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("LLMContentBlock"),
            client: llm_message.client
          }
@@ -94,8 +93,7 @@ defimpl Nestru.Decoder, for: Dagger.LLMMessage do
      %Dagger.LLMMessage{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("LLMMessage"),
        client: dag.client
      }}

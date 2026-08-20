@@ -27,8 +27,7 @@ defmodule Dagger.GeneratorGroup do
   def changes(%__MODULE__{} = generator_group, optional_args \\ []) do
     query_builder =
       generator_group.query_builder
-      |> QB.select("changes")
-      |> QB.maybe_put_arg("onConflict", optional_args[:on_conflict])
+      |> QB.select("changes", onConflict: optional_args[:on_conflict])
 
     %Dagger.Changeset{
       query_builder: query_builder,
@@ -64,7 +63,7 @@ defmodule Dagger.GeneratorGroup do
   @spec list(t()) :: {:ok, [Dagger.Generator.t()]} | {:error, term()}
   def list(%__MODULE__{} = generator_group) do
     query_builder =
-      generator_group.query_builder |> QB.select("list") |> QB.select("id")
+      generator_group.query_builder |> QB.select("list") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(generator_group.client, query_builder) do
       {:ok,
@@ -72,8 +71,7 @@ defmodule Dagger.GeneratorGroup do
          %Dagger.Generator{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Generator"),
            client: generator_group.client
          }
@@ -125,8 +123,7 @@ defimpl Nestru.Decoder, for: Dagger.GeneratorGroup do
      %Dagger.GeneratorGroup{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("GeneratorGroup"),
        client: dag.client
      }}

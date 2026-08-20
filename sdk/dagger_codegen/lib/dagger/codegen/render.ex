@@ -224,21 +224,42 @@ defmodule Dagger.Codegen.Render do
   defp query_builder(%Function{} = fun) do
     [
       "#{fun.self}.query_builder",
-      "|> QB.select(\"#{fun.gql_name}\")",
-      Enum.map(fun.required_args, &["|> QB.put_arg(\"#{&1.gql_name}\", ", put_arg(&1), ")"]),
-      Enum.map(
-        fun.optional_args,
-        &["|> QB.maybe_put_arg(\"#{&1.gql_name}\", ", maybe_put_arg(&1), ")"]
-      ),
+      select(fun),
       # A list of objects is fetched by id, then rehydrated client-side.
       case fun.return do
-        {:nodes, _type} -> "|> QB.select(\"id\")"
+        {:nodes, _type} -> "|> QB.select_fields([\"id\"])"
         _otherwise -> []
       end
     ]
   end
 
-  defp put_arg(%Arg{} = arg) do
+  # An optional argument that was left unset is `nil`, and `QB.select/3` leaves
+  # a `nil` argument out of the query, so both kinds are written the same way.
+  defp select(%Function{} = fun) do
+    args =
+      Enum.map(fun.required_args, &arg(&1, required_value(&1))) ++
+        Enum.map(fun.optional_args, &arg(&1, optional_value(&1)))
+
+    case args do
+      [] -> "|> QB.select(\"#{fun.gql_name}\")"
+      args -> ["|> QB.select(\"#{fun.gql_name}\", ", Enum.intersperse(args, ", "), ")"]
+    end
+  end
+
+  defp arg(%Arg{} = arg, value), do: [arg_key(arg.gql_name), ": ", value]
+
+  # The schema's own name for the argument, written as a keyword key. Every name
+  # the schema has used so far is a plain lowercase identifier, but one that is
+  # not has to be quoted or the generated code will not parse.
+  defp arg_key(gql_name) do
+    if Regex.match?(~r/\A[a-z_][A-Za-z0-9_]*\z/, gql_name) do
+      gql_name
+    else
+      "\"#{gql_name}\""
+    end
+  end
+
+  defp required_value(%Arg{} = arg) do
     case Type.encoder(arg.type) do
       :identity -> arg.name
       {:call, fun} -> "#{fun}(#{arg.name})"
@@ -246,7 +267,7 @@ defmodule Dagger.Codegen.Render do
     end
   end
 
-  defp maybe_put_arg(%Arg{} = arg) do
+  defp optional_value(%Arg{} = arg) do
     value = "optional_args[:#{arg.name}]"
 
     case Type.encoder(arg.type) do
@@ -325,8 +346,7 @@ defmodule Dagger.Codegen.Render do
     %#{module}{
       query_builder:
         #{base}
-        |> QB.select("node")
-        |> QB.put_arg("id", id)
+        |> QB.select("node", id: id)
         |> QB.inline_fragment("#{gql_name}"),
       client: #{client}
     }\

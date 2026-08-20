@@ -85,7 +85,7 @@ defmodule Dagger.Core.Client do
     q = QB.build(query_builder)
 
     case query(client, q) do
-      {:ok, %Response{errors: [error]}} ->
+      {:ok, %Response{errors: [error | _]}} ->
         error =
           case error.extensions["_type"] do
             "EXEC_ERROR" ->
@@ -108,10 +108,6 @@ defmodule Dagger.Core.Client do
   end
 
   defp select(data, []), do: data
-
-  defp select(data, _selectors) when is_list(data) do
-    data
-  end
 
   defp select(data, [selector | selectors]) do
     select(Map.get(data, selector), selectors)

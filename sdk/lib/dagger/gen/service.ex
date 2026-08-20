@@ -27,9 +27,7 @@ defmodule Dagger.Service do
   def endpoint(%__MODULE__{} = service, optional_args \\ []) do
     query_builder =
       service.query_builder
-      |> QB.select("endpoint")
-      |> QB.maybe_put_arg("port", optional_args[:port])
-      |> QB.maybe_put_arg("scheme", optional_args[:scheme])
+      |> QB.select("endpoint", port: optional_args[:port], scheme: optional_args[:scheme])
 
     Client.execute(service.client, query_builder)
   end
@@ -62,7 +60,7 @@ defmodule Dagger.Service do
   @spec ports(t()) :: {:ok, [Dagger.Port.t()]} | {:error, term()}
   def ports(%__MODULE__{} = service) do
     query_builder =
-      service.query_builder |> QB.select("ports") |> QB.select("id")
+      service.query_builder |> QB.select("ports") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(service.client, query_builder) do
       {:ok,
@@ -70,8 +68,7 @@ defmodule Dagger.Service do
          %Dagger.Port{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Port"),
            client: service.client
          }
@@ -94,8 +91,7 @@ defmodule Dagger.Service do
        %Dagger.Service{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Service"),
          client: service.client
        }}
@@ -108,15 +104,14 @@ defmodule Dagger.Service do
   @spec stop(t(), [{:kill, boolean() | nil}]) :: {:ok, Dagger.Service.t()} | {:error, term()}
   def stop(%__MODULE__{} = service, optional_args \\ []) do
     query_builder =
-      service.query_builder |> QB.select("stop") |> QB.maybe_put_arg("kill", optional_args[:kill])
+      service.query_builder |> QB.select("stop", kill: optional_args[:kill])
 
     with {:ok, id} <- Client.execute(service.client, query_builder) do
       {:ok,
        %Dagger.Service{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Service"),
          client: service.client
        }}
@@ -136,8 +131,7 @@ defmodule Dagger.Service do
        %Dagger.Service{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Service"),
          client: service.client
        }}
@@ -147,9 +141,7 @@ defmodule Dagger.Service do
   @spec terminal(t(), [{:cmd, [String.t()]}]) :: Dagger.Service.t()
   def terminal(%__MODULE__{} = service, optional_args \\ []) do
     query_builder =
-      service.query_builder
-      |> QB.select("terminal")
-      |> QB.maybe_put_arg("cmd", optional_args[:cmd])
+      service.query_builder |> QB.select("terminal", cmd: optional_args[:cmd])
 
     %Dagger.Service{
       query_builder: query_builder,
@@ -165,9 +157,7 @@ defmodule Dagger.Service do
   def up(%__MODULE__{} = service, optional_args \\ []) do
     query_builder =
       service.query_builder
-      |> QB.select("up")
-      |> QB.maybe_put_arg("ports", optional_args[:ports])
-      |> QB.maybe_put_arg("random", optional_args[:random])
+      |> QB.select("up", ports: optional_args[:ports], random: optional_args[:random])
 
     case Client.execute(service.client, query_builder) do
       {:ok, _} -> :ok
@@ -181,7 +171,7 @@ defmodule Dagger.Service do
   @spec with_hostname(t(), String.t()) :: Dagger.Service.t()
   def with_hostname(%__MODULE__{} = service, hostname) do
     query_builder =
-      service.query_builder |> QB.select("withHostname") |> QB.put_arg("hostname", hostname)
+      service.query_builder |> QB.select("withHostname", hostname: hostname)
 
     %Dagger.Service{
       query_builder: query_builder,
@@ -206,8 +196,7 @@ defimpl Nestru.Decoder, for: Dagger.Service do
      %Dagger.Service{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Service"),
        client: dag.client
      }}

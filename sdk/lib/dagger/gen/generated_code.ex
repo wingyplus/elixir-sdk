@@ -68,9 +68,7 @@ defmodule Dagger.GeneratedCode do
   @spec with_vcs_generated_paths(t(), [String.t()]) :: Dagger.GeneratedCode.t()
   def with_vcs_generated_paths(%__MODULE__{} = generated_code, paths) do
     query_builder =
-      generated_code.query_builder
-      |> QB.select("withVCSGeneratedPaths")
-      |> QB.put_arg("paths", paths)
+      generated_code.query_builder |> QB.select("withVCSGeneratedPaths", paths: paths)
 
     %Dagger.GeneratedCode{
       query_builder: query_builder,
@@ -84,9 +82,7 @@ defmodule Dagger.GeneratedCode do
   @spec with_vcs_ignored_paths(t(), [String.t()]) :: Dagger.GeneratedCode.t()
   def with_vcs_ignored_paths(%__MODULE__{} = generated_code, paths) do
     query_builder =
-      generated_code.query_builder
-      |> QB.select("withVCSIgnoredPaths")
-      |> QB.put_arg("paths", paths)
+      generated_code.query_builder |> QB.select("withVCSIgnoredPaths", paths: paths)
 
     %Dagger.GeneratedCode{
       query_builder: query_builder,
@@ -111,8 +107,7 @@ defimpl Nestru.Decoder, for: Dagger.GeneratedCode do
      %Dagger.GeneratedCode{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("GeneratedCode"),
        client: dag.client
      }}

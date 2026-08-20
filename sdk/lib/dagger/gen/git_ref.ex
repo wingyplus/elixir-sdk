@@ -21,9 +21,7 @@ defmodule Dagger.GitRef do
   @spec as_workspace(t(), [{:cwd, String.t() | nil}]) :: Dagger.Workspace.t()
   def as_workspace(%__MODULE__{} = git_ref, optional_args \\ []) do
     query_builder =
-      git_ref.query_builder
-      |> QB.select("asWorkspace")
-      |> QB.maybe_put_arg("cwd", optional_args[:cwd])
+      git_ref.query_builder |> QB.select("asWorkspace", cwd: optional_args[:cwd])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -62,9 +60,7 @@ defmodule Dagger.GitRef do
   @spec common_ancestor(t(), Dagger.GitRef.t()) :: Dagger.GitRef.t()
   def common_ancestor(%__MODULE__{} = git_ref, other) do
     query_builder =
-      git_ref.query_builder
-      |> QB.select("commonAncestor")
-      |> QB.put_arg("other", Dagger.ID.id!(other))
+      git_ref.query_builder |> QB.select("commonAncestor", other: Dagger.ID.id!(other))
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -94,14 +90,12 @@ defmodule Dagger.GitRef do
   def log(%__MODULE__{} = git_ref, optional_args \\ []) do
     query_builder =
       git_ref.query_builder
-      |> QB.select("log")
-      |> QB.maybe_put_arg("limit", optional_args[:limit])
-      |> QB.maybe_put_arg("paths", optional_args[:paths])
-      |> QB.maybe_put_arg(
-        "base",
-        if(optional_args[:base], do: Dagger.ID.id!(optional_args[:base]), else: nil)
+      |> QB.select("log",
+        limit: optional_args[:limit],
+        paths: optional_args[:paths],
+        base: if(optional_args[:base], do: Dagger.ID.id!(optional_args[:base]), else: nil)
       )
-      |> QB.select("id")
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(git_ref.client, query_builder) do
       {:ok,
@@ -109,8 +103,7 @@ defmodule Dagger.GitRef do
          %Dagger.GitCommit{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("GitCommit"),
            client: git_ref.client
          }
@@ -168,10 +161,11 @@ defmodule Dagger.GitRef do
   def tree(%__MODULE__{} = git_ref, optional_args \\ []) do
     query_builder =
       git_ref.query_builder
-      |> QB.select("tree")
-      |> QB.maybe_put_arg("discardGitDir", optional_args[:discard_git_dir])
-      |> QB.maybe_put_arg("depth", optional_args[:depth])
-      |> QB.maybe_put_arg("includeTags", optional_args[:include_tags])
+      |> QB.select("tree",
+        discardGitDir: optional_args[:discard_git_dir],
+        depth: optional_args[:depth],
+        includeTags: optional_args[:include_tags]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -196,8 +190,7 @@ defimpl Nestru.Decoder, for: Dagger.GitRef do
      %Dagger.GitRef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("GitRef"),
        client: dag.client
      }}

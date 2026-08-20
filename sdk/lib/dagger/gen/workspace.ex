@@ -32,9 +32,7 @@ defmodule Dagger.Workspace do
   @spec agents(t(), [{:include, [String.t()]}]) :: Dagger.AgentGroup.t()
   def agents(%__MODULE__{} = workspace, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("agents")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      workspace.query_builder |> QB.select("agents", include: optional_args[:include])
 
     %Dagger.AgentGroup{
       query_builder: query_builder,
@@ -68,11 +66,12 @@ defmodule Dagger.Workspace do
   def checks(%__MODULE__{} = workspace, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("checks")
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("skip", optional_args[:skip])
-      |> QB.maybe_put_arg("noGenerate", optional_args[:no_generate])
-      |> QB.maybe_put_arg("onlyGenerate", optional_args[:only_generate])
+      |> QB.select("checks",
+        include: optional_args[:include],
+        skip: optional_args[:skip],
+        noGenerate: optional_args[:no_generate],
+        onlyGenerate: optional_args[:only_generate]
+      )
 
     %Dagger.CheckGroup{
       query_builder: query_builder,
@@ -103,9 +102,7 @@ defmodule Dagger.Workspace do
   @spec config_read(t(), [{:key, String.t() | nil}]) :: {:ok, String.t()} | {:error, term()}
   def config_read(%__MODULE__{} = workspace, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("configRead")
-      |> QB.maybe_put_arg("key", optional_args[:key])
+      workspace.query_builder |> QB.select("configRead", key: optional_args[:key])
 
     Client.execute(workspace.client, query_builder)
   end
@@ -138,11 +135,12 @@ defmodule Dagger.Workspace do
   def directory(%__MODULE__{} = workspace, path, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("directory")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
+      |> QB.select("directory",
+        path: path,
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -183,7 +181,7 @@ defmodule Dagger.Workspace do
   @spec file(t(), String.t()) :: Dagger.File.t()
   def file(%__MODULE__{} = workspace, path) do
     query_builder =
-      workspace.query_builder |> QB.select("file") |> QB.put_arg("path", path)
+      workspace.query_builder |> QB.select("file", path: path)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -204,10 +202,7 @@ defmodule Dagger.Workspace do
           {:ok, String.t() | nil} | {:error, term()}
   def find_up(%__MODULE__{} = workspace, name, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("findUp")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("from", optional_args[:from])
+      workspace.query_builder |> QB.select("findUp", name: name, from: optional_args[:from])
 
     Client.execute(workspace.client, query_builder)
   end
@@ -218,9 +213,7 @@ defmodule Dagger.Workspace do
   @spec generators(t(), [{:include, [String.t()]}]) :: Dagger.GeneratorGroup.t()
   def generators(%__MODULE__{} = workspace, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("generators")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      workspace.query_builder |> QB.select("generators", include: optional_args[:include])
 
     %Dagger.GeneratorGroup{
       query_builder: query_builder,
@@ -250,7 +243,7 @@ defmodule Dagger.Workspace do
   @spec glob(t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def glob(%__MODULE__{} = workspace, pattern) do
     query_builder =
-      workspace.query_builder |> QB.select("glob") |> QB.put_arg("pattern", pattern)
+      workspace.query_builder |> QB.select("glob", pattern: pattern)
 
     Client.execute(workspace.client, query_builder)
   end
@@ -290,7 +283,7 @@ defmodule Dagger.Workspace do
   @spec module(t(), String.t()) :: Dagger.WorkspaceModule.t()
   def module(%__MODULE__{} = workspace, name) do
     query_builder =
-      workspace.query_builder |> QB.select("module") |> QB.put_arg("name", name)
+      workspace.query_builder |> QB.select("module", name: name)
 
     %Dagger.WorkspaceModule{
       query_builder: query_builder,
@@ -308,7 +301,7 @@ defmodule Dagger.Workspace do
   @spec module_source(t(), String.t()) :: Dagger.ModuleSource.t()
   def module_source(%__MODULE__{} = workspace, path) do
     query_builder =
-      workspace.query_builder |> QB.select("moduleSource") |> QB.put_arg("path", path)
+      workspace.query_builder |> QB.select("moduleSource", path: path)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -324,7 +317,7 @@ defmodule Dagger.Workspace do
   @spec modules(t()) :: {:ok, [Dagger.WorkspaceModule.t()]} | {:error, term()}
   def modules(%__MODULE__{} = workspace) do
     query_builder =
-      workspace.query_builder |> QB.select("modules") |> QB.select("id")
+      workspace.query_builder |> QB.select("modules") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace.client, query_builder) do
       {:ok,
@@ -332,8 +325,7 @@ defmodule Dagger.Workspace do
          %Dagger.WorkspaceModule{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("WorkspaceModule"),
            client: workspace.client
          }
@@ -361,7 +353,7 @@ defmodule Dagger.Workspace do
   @spec sdk(t(), String.t()) :: Dagger.WorkspaceSDK.t()
   def sdk(%__MODULE__{} = workspace, name) do
     query_builder =
-      workspace.query_builder |> QB.select("sdk") |> QB.put_arg("name", name)
+      workspace.query_builder |> QB.select("sdk", name: name)
 
     %Dagger.WorkspaceSDK{
       query_builder: query_builder,
@@ -375,7 +367,7 @@ defmodule Dagger.Workspace do
   @spec sdks(t()) :: {:ok, [Dagger.WorkspaceSDK.t()]} | {:error, term()}
   def sdks(%__MODULE__{} = workspace) do
     query_builder =
-      workspace.query_builder |> QB.select("sdks") |> QB.select("id")
+      workspace.query_builder |> QB.select("sdks") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace.client, query_builder) do
       {:ok,
@@ -383,8 +375,7 @@ defmodule Dagger.Workspace do
          %Dagger.WorkspaceSDK{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("WorkspaceSDK"),
            client: workspace.client
          }
@@ -414,19 +405,20 @@ defmodule Dagger.Workspace do
   def search(%__MODULE__{} = workspace, pattern, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("search")
-      |> QB.put_arg("pattern", pattern)
-      |> QB.maybe_put_arg("paths", optional_args[:paths])
-      |> QB.maybe_put_arg("globs", optional_args[:globs])
-      |> QB.maybe_put_arg("literal", optional_args[:literal])
-      |> QB.maybe_put_arg("multiline", optional_args[:multiline])
-      |> QB.maybe_put_arg("dotall", optional_args[:dotall])
-      |> QB.maybe_put_arg("insensitive", optional_args[:insensitive])
-      |> QB.maybe_put_arg("skipIgnored", optional_args[:skip_ignored])
-      |> QB.maybe_put_arg("skipHidden", optional_args[:skip_hidden])
-      |> QB.maybe_put_arg("filesOnly", optional_args[:files_only])
-      |> QB.maybe_put_arg("limit", optional_args[:limit])
-      |> QB.select("id")
+      |> QB.select("search",
+        pattern: pattern,
+        paths: optional_args[:paths],
+        globs: optional_args[:globs],
+        literal: optional_args[:literal],
+        multiline: optional_args[:multiline],
+        dotall: optional_args[:dotall],
+        insensitive: optional_args[:insensitive],
+        skipIgnored: optional_args[:skip_ignored],
+        skipHidden: optional_args[:skip_hidden],
+        filesOnly: optional_args[:files_only],
+        limit: optional_args[:limit]
+      )
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace.client, query_builder) do
       {:ok,
@@ -434,8 +426,7 @@ defmodule Dagger.Workspace do
          %Dagger.SearchResult{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("SearchResult"),
            client: workspace.client
          }
@@ -449,9 +440,7 @@ defmodule Dagger.Workspace do
   @spec services(t(), [{:include, [String.t()]}]) :: Dagger.UpGroup.t()
   def services(%__MODULE__{} = workspace, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("services")
-      |> QB.maybe_put_arg("include", optional_args[:include])
+      workspace.query_builder |> QB.select("services", include: optional_args[:include])
 
     %Dagger.UpGroup{
       query_builder: query_builder,
@@ -465,9 +454,7 @@ defmodule Dagger.Workspace do
   @spec with_changes(t(), Dagger.Changeset.t()) :: Dagger.Workspace.t()
   def with_changes(%__MODULE__{} = workspace, changes) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("withChanges")
-      |> QB.put_arg("changes", Dagger.ID.id!(changes))
+      workspace.query_builder |> QB.select("withChanges", changes: Dagger.ID.id!(changes))
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -482,9 +469,7 @@ defmodule Dagger.Workspace do
   def with_config_env(%__MODULE__{} = workspace, name, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withConfigEnv")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withConfigEnv", name: name, here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -504,11 +489,12 @@ defmodule Dagger.Workspace do
   def with_config_value(%__MODULE__{} = workspace, key, value, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withConfigValue")
-      |> QB.put_arg("key", key)
-      |> QB.put_arg("value", value)
-      |> QB.maybe_put_arg("values", optional_args[:values])
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withConfigValue",
+        key: key,
+        value: value,
+        values: optional_args[:values],
+        here: optional_args[:here]
+      )
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -529,13 +515,14 @@ defmodule Dagger.Workspace do
   def with_init_client(%__MODULE__{} = workspace, path, sdk, module, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withInitClient")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("sdk", sdk)
-      |> QB.put_arg("module", module)
-      |> QB.maybe_put_arg("args", optional_args[:args])
-      |> QB.maybe_put_arg("here", optional_args[:here])
-      |> QB.maybe_put_arg("noGenerate", optional_args[:no_generate])
+      |> QB.select("withInitClient",
+        path: path,
+        sdk: sdk,
+        module: module,
+        args: optional_args[:args],
+        here: optional_args[:here],
+        noGenerate: optional_args[:no_generate]
+      )
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -559,15 +546,16 @@ defmodule Dagger.Workspace do
   def with_init_module(%__MODULE__{} = workspace, name, sdk, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withInitModule")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("sdk", sdk)
-      |> QB.maybe_put_arg("path", optional_args[:path])
-      |> QB.maybe_put_arg("source", optional_args[:source])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("args", optional_args[:args])
-      |> QB.maybe_put_arg("here", optional_args[:here])
-      |> QB.maybe_put_arg("noGenerate", optional_args[:no_generate])
+      |> QB.select("withInitModule",
+        name: name,
+        sdk: sdk,
+        path: optional_args[:path],
+        source: optional_args[:source],
+        include: optional_args[:include],
+        args: optional_args[:args],
+        here: optional_args[:here],
+        noGenerate: optional_args[:no_generate]
+      )
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -585,10 +573,7 @@ defmodule Dagger.Workspace do
   def with_module(%__MODULE__{} = workspace, ref, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withModule")
-      |> QB.put_arg("ref", ref)
-      |> QB.maybe_put_arg("name", optional_args[:name])
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withModule", ref: ref, name: optional_args[:name], here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -605,9 +590,7 @@ defmodule Dagger.Workspace do
   def with_mounted_directory(%__MODULE__{} = workspace, path, source) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withMountedDirectory")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("source", Dagger.ID.id!(source))
+      |> QB.select("withMountedDirectory", path: path, source: Dagger.ID.id!(source))
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -624,9 +607,7 @@ defmodule Dagger.Workspace do
   def with_mounted_file(%__MODULE__{} = workspace, path, source) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withMountedFile")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("source", Dagger.ID.id!(source))
+      |> QB.select("withMountedFile", path: path, source: Dagger.ID.id!(source))
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -641,9 +622,7 @@ defmodule Dagger.Workspace do
   def with_new_directory(%__MODULE__{} = workspace, path, source) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withNewDirectory")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("source", Dagger.ID.id!(source))
+      |> QB.select("withNewDirectory", path: path, source: Dagger.ID.id!(source))
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -659,10 +638,11 @@ defmodule Dagger.Workspace do
   def with_new_file(%__MODULE__{} = workspace, path, contents, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withNewFile")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("contents", contents)
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("withNewFile",
+        path: path,
+        contents: contents,
+        permissions: optional_args[:permissions]
+      )
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -681,11 +661,12 @@ defmodule Dagger.Workspace do
   def with_sdk(%__MODULE__{} = workspace, ref, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withSDK")
-      |> QB.put_arg("ref", ref)
-      |> QB.maybe_put_arg("name", optional_args[:name])
-      |> QB.maybe_put_arg("here", optional_args[:here])
-      |> QB.maybe_put_arg("asSdkName", optional_args[:as_sdk_name])
+      |> QB.select("withSDK",
+        ref: ref,
+        name: optional_args[:name],
+        here: optional_args[:here],
+        asSdkName: optional_args[:as_sdk_name]
+      )
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -713,7 +694,7 @@ defmodule Dagger.Workspace do
   @spec with_workdir(t(), String.t()) :: Dagger.Workspace.t()
   def with_workdir(%__MODULE__{} = workspace, path) do
     query_builder =
-      workspace.query_builder |> QB.select("withWorkdir") |> QB.put_arg("path", path)
+      workspace.query_builder |> QB.select("withWorkdir", path: path)
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -728,9 +709,7 @@ defmodule Dagger.Workspace do
   def without_config_env(%__MODULE__{} = workspace, name, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withoutConfigEnv")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withoutConfigEnv", name: name, here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -749,9 +728,7 @@ defmodule Dagger.Workspace do
   def without_config_value(%__MODULE__{} = workspace, key, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withoutConfigValue")
-      |> QB.put_arg("key", key)
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withoutConfigValue", key: key, here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -765,7 +742,7 @@ defmodule Dagger.Workspace do
   @spec without_directory(t(), String.t()) :: Dagger.Workspace.t()
   def without_directory(%__MODULE__{} = workspace, path) do
     query_builder =
-      workspace.query_builder |> QB.select("withoutDirectory") |> QB.put_arg("path", path)
+      workspace.query_builder |> QB.select("withoutDirectory", path: path)
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -779,7 +756,7 @@ defmodule Dagger.Workspace do
   @spec without_file(t(), String.t()) :: Dagger.Workspace.t()
   def without_file(%__MODULE__{} = workspace, path) do
     query_builder =
-      workspace.query_builder |> QB.select("withoutFile") |> QB.put_arg("path", path)
+      workspace.query_builder |> QB.select("withoutFile", path: path)
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -796,9 +773,7 @@ defmodule Dagger.Workspace do
   def without_module(%__MODULE__{} = workspace, name, optional_args \\ []) do
     query_builder =
       workspace.query_builder
-      |> QB.select("withoutModule")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      |> QB.select("withoutModule", name: name, here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -812,10 +787,7 @@ defmodule Dagger.Workspace do
   @spec without_sdk(t(), String.t(), [{:here, boolean() | nil}]) :: Dagger.Workspace.t()
   def without_sdk(%__MODULE__{} = workspace, name, optional_args \\ []) do
     query_builder =
-      workspace.query_builder
-      |> QB.select("withoutSDK")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("here", optional_args[:here])
+      workspace.query_builder |> QB.select("withoutSDK", name: name, here: optional_args[:here])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -840,8 +812,7 @@ defimpl Nestru.Decoder, for: Dagger.Workspace do
      %Dagger.Workspace{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Workspace"),
        client: dag.client
      }}

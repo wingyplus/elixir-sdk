@@ -76,7 +76,7 @@ defmodule Dagger.SearchResult do
   @spec submatches(t()) :: {:ok, [Dagger.SearchSubmatch.t()]} | {:error, term()}
   def submatches(%__MODULE__{} = search_result) do
     query_builder =
-      search_result.query_builder |> QB.select("submatches") |> QB.select("id")
+      search_result.query_builder |> QB.select("submatches") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(search_result.client, query_builder) do
       {:ok,
@@ -84,8 +84,7 @@ defmodule Dagger.SearchResult do
          %Dagger.SearchSubmatch{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("SearchSubmatch"),
            client: search_result.client
          }
@@ -110,8 +109,7 @@ defimpl Nestru.Decoder, for: Dagger.SearchResult do
      %Dagger.SearchResult{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("SearchResult"),
        client: dag.client
      }}

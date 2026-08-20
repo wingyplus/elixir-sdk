@@ -4,65 +4,89 @@ defmodule Dagger.Core.QueryBuilderTest do
   alias Dagger.Core.QueryBuilder, as: QB
 
   describe "build/1" do
+    test "select without arguments" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("stdout")
+        |> QB.build()
+
+      assert q == "query{container{stdout}}"
+    end
+
     test "encode atom to enum" do
       q =
         QB.query()
         |> QB.select("container")
-        |> QB.select("withExposedPort")
-        |> QB.put_arg("protocol", :TCP)
+        |> QB.select("withExposedPort", protocol: :TCP)
         |> QB.build()
 
       assert q == "query{container{withExposedPort(protocol:TCP)}}"
     end
 
     test "encode scalars" do
+      assert build_arg(:path, "/app") == ~s|query{container(path:"/app")}|
+      assert build_arg(:port, 8080) == "query{container(port:8080)}"
+      assert build_arg(:expand, true) == "query{container(expand:true)}"
+      assert build_arg(:expand, false) == "query{container(expand:false)}"
+      assert build_arg(:args, ["echo", "hello"]) == ~s|query{container(args:["echo","hello"])}|
+    end
+
+    test "accept a binary argument name" do
       assert build_arg("path", "/app") == ~s|query{container(path:"/app")}|
-      assert build_arg("port", 8080) == "query{container(port:8080)}"
-      assert build_arg("expand", true) == "query{container(expand:true)}"
-      assert build_arg("expand", false) == "query{container(expand:false)}"
-      assert build_arg("args", ["echo", "hello"]) == ~s|query{container(args:["echo","hello"])}|
     end
 
-    test "encode nil to null" do
-      assert build_arg("expand", nil) == "query{container(expand:null)}"
-    end
-
-    test "skip the argument that its value is nil" do
+    test "keep the arguments in the order they were given" do
       q =
         QB.query()
         |> QB.select("container")
-        |> QB.maybe_put_arg("expand", nil)
+        |> QB.select("withEnvVariable", name: "PATH", value: "/bin", expand: true)
         |> QB.build()
 
-      assert q == "query{container}"
+      assert q == ~s|query{container{withEnvVariable(name:"PATH",value:"/bin",expand:true)}}|
+    end
+
+    test "skip the argument that its value is nil" do
+      assert build_arg(:expand, nil) == "query{container}"
+
+      q =
+        QB.query()
+        |> QB.select("container", path: "/app", expand: nil, port: 8080)
+        |> QB.build()
+
+      assert q == ~s|query{container(path:"/app",port:8080)}|
+    end
+
+    test "encode a nested nil to null" do
+      assert build_arg(:args, ["echo", nil]) == ~s|query{container(args:["echo",null])}|
     end
 
     test "escape a string" do
-      assert build_arg("s", ~S|a "quoted" \ value|) ==
+      assert build_arg(:s, ~S|a "quoted" \ value|) ==
                ~S|query{container(s:"a \"quoted\" \\ value")}|
 
-      assert build_arg("s", "line\r\nsep\ttab") == ~S|query{container(s:"line\r\nsep\ttab")}|
+      assert build_arg(:s, "line\r\nsep\ttab") == ~S|query{container(s:"line\r\nsep\ttab")}|
 
-      assert build_arg("s", "form\ffeed\bback") == ~S|query{container(s:"form\ffeed\bback")}|
+      assert build_arg(:s, "form\ffeed\bback") == ~S|query{container(s:"form\ffeed\bback")}|
 
-      assert build_arg("s", <<"null:", 0, ",bell:", 7>>) ==
+      assert build_arg(:s, <<"null:", 0, ",bell:", 7>>) ==
                ~S|query{container(s:"null:\u0000,bell:\u0007")}|
 
-      assert build_arg("s", "héllo → 🐳") == ~s|query{container(s:"héllo → 🐳")}|
+      assert build_arg(:s, "héllo → 🐳") == ~s|query{container(s:"héllo → 🐳")}|
     end
 
     test "encode an input object with the schema field names" do
       block = %Dagger.LLMContentBlockInput{kind: :TOOL_CALL, call_id: "1", tool_name: "read"}
 
-      assert build_arg("block", block) ==
+      assert build_arg(:block, block) ==
                ~S|query{container(block:{callId:"1",kind:TOOL_CALL,toolName:"read"})}|
     end
 
     test "encode an input object without its unset fields" do
-      assert build_arg("port", %Dagger.PortForward{backend: 8080}) ==
+      assert build_arg(:port, %Dagger.PortForward{backend: 8080}) ==
                "query{container(port:{backend:8080})}"
 
-      assert build_arg("ports", [
+      assert build_arg(:ports, [
                %Dagger.PortForward{backend: 8080, frontend: 80, protocol: :TCP},
                %Dagger.PortForward{backend: 9090}
              ]) ==
@@ -70,26 +94,14 @@ defmodule Dagger.Core.QueryBuilderTest do
     end
 
     test "encode a map like an input object" do
-      assert build_arg("port", %{backend: 8080, protocol: nil}) ==
+      assert build_arg(:port, %{backend: 8080, protocol: nil}) ==
                "query{container(port:{backend:8080})}"
-    end
-
-    test "select with alias" do
-      q =
-        QB.query()
-        |> QB.select("container")
-        |> QB.select_with_alias("a", "from")
-        |> QB.put_arg("address", "alpine")
-        |> QB.build()
-
-      assert q == ~s|query{container{a:from(address:"alpine")}}|
     end
 
     test "select an inline fragment" do
       q =
         QB.query()
-        |> QB.select("node")
-        |> QB.put_arg("id", "abc")
+        |> QB.select("node", id: "abc")
         |> QB.inline_fragment("Container")
         |> QB.select("stdout")
         |> QB.build()
@@ -98,16 +110,57 @@ defmodule Dagger.Core.QueryBuilderTest do
     end
   end
 
+  describe "select_fields/2" do
+    test "select a set of leaf fields" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("envVariables")
+        |> QB.select_fields(["id", "name", "value"])
+        |> QB.build()
+
+      assert q == "query{container{envVariables{id name value}}}"
+    end
+
+    test "select a single leaf field" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("envVariables")
+        |> QB.select_fields(["id"])
+        |> QB.build()
+
+      assert q == "query{container{envVariables{id}}}"
+    end
+
+    test "a leaf field set ends the query" do
+      q = QB.query() |> QB.select("container") |> QB.select_fields(["stdout", "stderr"])
+
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select(q, "stdout") end
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select_fields(q, ["id"]) end
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.inline_fragment(q, "File") end
+    end
+  end
+
   describe "path/1" do
     test "return the selected field names, ignoring inline fragments" do
       q =
         QB.query()
-        |> QB.select("node")
-        |> QB.put_arg("id", "abc")
+        |> QB.select("node", id: "abc")
         |> QB.inline_fragment("Container")
         |> QB.select("stdout")
 
       assert QB.path(q) == ["node", "stdout"]
+    end
+
+    test "stop above a leaf field set" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("envVariables")
+        |> QB.select_fields(["id", "name"])
+
+      assert QB.path(q) == ["container", "envVariables"]
     end
   end
 
@@ -121,7 +174,7 @@ defmodule Dagger.Core.QueryBuilderTest do
         {"a longer run of ordinary bytes, to shift the following offsets",
          "a longer run of ordinary bytes, to shift the following offsets"},
         {<<7>>, ~S|\u0007|},
-        {"h\u00e9llo \u{1F433}", "h\u00e9llo \u{1F433}"},
+        {"héllo \u{1F433}", "héllo \u{1F433}"},
         {"\\", ~S|\\|}
       ]
 
@@ -134,14 +187,13 @@ defmodule Dagger.Core.QueryBuilderTest do
       escaped = IO.iodata_to_binary(escaped)
 
       assert byte_size(input) > 100_000
-      assert build_arg("s", input) == ~s|query{container(s:"#{escaped}")}|
+      assert build_arg(:s, input) == ~s|query{container(s:"#{escaped}")}|
     end
   end
 
   defp build_arg(name, value) do
     QB.query()
-    |> QB.select("container")
-    |> QB.put_arg(name, value)
+    |> QB.select("container", [{name, value}])
     |> QB.build()
   end
 end
