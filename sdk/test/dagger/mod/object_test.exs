@@ -92,8 +92,8 @@ defmodule Dagger.Mod.ObjectTest do
                      {:deprecated, nil},
                      {:default_path, nil},
                      {:doc, nil},
-                     {:default, "Foo"},
-                     {:type, {:optional, :string}}
+                     {:type, {:optional, :string}},
+                     {:default, "Foo"}
                    ]
                  ],
                  return: :string
@@ -106,8 +106,8 @@ defmodule Dagger.Mod.ObjectTest do
                      {:deprecated, nil},
                      {:default_path, nil},
                      {:doc, nil},
-                     {:default, 42},
-                     {:type, :integer}
+                     {:type, :integer},
+                     {:default, 42}
                    ]
                  ],
                  return: :integer
@@ -120,8 +120,8 @@ defmodule Dagger.Mod.ObjectTest do
                      {:deprecated, nil},
                      {:default_path, nil},
                      {:doc, nil},
-                     {:default, 1.6180342},
-                     {:type, :float}
+                     {:type, :float},
+                     {:default, 1.6180342}
                    ]
                  ],
                  return: :float
@@ -134,8 +134,8 @@ defmodule Dagger.Mod.ObjectTest do
                      {:deprecated, nil},
                      {:default_path, nil},
                      {:doc, nil},
-                     {:default, false},
-                     {:type, :boolean}
+                     {:type, :boolean},
+                     {:default, false}
                    ]
                  ],
                  return: :boolean
@@ -228,10 +228,10 @@ defmodule Dagger.Mod.ObjectTest do
                    dir: [
                      {:default, nil},
                      {:deprecated, nil},
-                     {:ignore, ["deps", "_build"]},
-                     {:default_path, "/sdk/elixir"},
+                     {:type, {:optional, Dagger.Directory}},
                      {:doc, "The directory to run on."},
-                     {:type, {:optional, Dagger.Directory}}
+                     {:default_path, "/sdk/elixir"},
+                     {:ignore, ["deps", "_build"]}
                    ]
                  ],
                  return: :string
@@ -562,16 +562,16 @@ defmodule Dagger.Mod.ObjectTest do
                      {:doc, nil},
                      {:default, nil},
                      {:default_path, nil},
-                     {:deprecated, "deprecated argument"},
-                     {:type, :string}
+                     {:type, :string},
+                     {:deprecated, "deprecated argument"}
                    ],
                    bar: [
                      {:ignore, nil},
                      {:doc, nil},
                      {:default, nil},
                      {:default_path, nil},
-                     {:deprecated, nil},
-                     {:type, :string}
+                     {:type, :string},
+                     {:deprecated, nil}
                    ]
                  ],
                  return: :string
