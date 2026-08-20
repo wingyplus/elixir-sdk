@@ -66,28 +66,28 @@ defmodule Dagger.Core.QueryBuilder do
   end
 
   defp build_alias(""), do: []
-  defp build_alias(alias), do: [alias, ~c":"]
+  defp build_alias(alias), do: [alias, ?:]
 
   defp build_args(nil), do: []
 
   defp build_args(args) do
-    fun = fn {name, value} -> [name, ~c":", encode_value(value)] end
-    [~c"(", Enum.map_intersperse(args, ",", fun), ~c")"]
+    fun = fn {name, value} -> [name, ?:, encode_value(value)] end
+    [?(, Enum.map_intersperse(args, ?,, fun), ?)]
   end
 
   # `null` only shows up when an argument is explicitly set to it:
   # `maybe_put_arg/3` drops the argument instead.
-  defp encode_value(nil), do: ~c"null"
+  defp encode_value(nil), do: "null"
 
   defp encode_value(value) when is_atom(value),
     do: to_string(value)
 
   defp encode_value(value) when is_binary(value) do
-    [~c"\"", escape(value), ~c"\""]
+    [?", escape(value), ?"]
   end
 
   defp encode_value(value) when is_list(value) do
-    [~c"[", Enum.map_intersperse(value, ",", &encode_value/1), ~c"]"]
+    [?[, Enum.map_intersperse(value, ?,, &encode_value/1), ?]]
   end
 
   defp encode_value(value) when is_struct(value) do
@@ -101,15 +101,15 @@ defmodule Dagger.Core.QueryBuilder do
     # SDK exposes, so they have to be turned back into the schema's camel case
     # ones. A field left as `nil` is an absent field, not a null one, and the
     # fields are sorted because a map does not iterate in a stable order.
-    fun = fn {name, value} -> [camelize(name), ~c":", encode_value(value)] end
+    fun = fn {name, value} -> [camelize(name), ?:, encode_value(value)] end
 
     fields =
       value
       |> Enum.reject(fn {_name, value} -> is_nil(value) end)
       |> Enum.sort()
-      |> Enum.map_intersperse(",", fun)
+      |> Enum.map_intersperse(?,, fun)
 
-    [~c"{", fields, ~c"}"]
+    [?{, fields, ?}]
   end
 
   defp encode_value(value), do: [to_string(value)]
