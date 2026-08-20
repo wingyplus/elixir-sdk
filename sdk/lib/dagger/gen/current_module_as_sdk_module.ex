@@ -54,8 +54,7 @@ defimpl Nestru.Decoder, for: Dagger.CurrentModuleAsSDKModule do
      %Dagger.CurrentModuleAsSDKModule{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("CurrentModuleAsSDKModule"),
        client: dag.client
      }}

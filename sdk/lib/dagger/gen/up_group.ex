@@ -32,7 +32,7 @@ defmodule Dagger.UpGroup do
   @spec list(t()) :: {:ok, [Dagger.Up.t()]} | {:error, term()}
   def list(%__MODULE__{} = up_group) do
     query_builder =
-      up_group.query_builder |> QB.select("list") |> QB.select("id")
+      up_group.query_builder |> QB.select("list") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(up_group.client, query_builder) do
       {:ok,
@@ -40,8 +40,7 @@ defmodule Dagger.UpGroup do
          %Dagger.Up{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Up"),
            client: up_group.client
          }
@@ -80,8 +79,7 @@ defimpl Nestru.Decoder, for: Dagger.UpGroup do
      %Dagger.UpGroup{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("UpGroup"),
        client: dag.client
      }}

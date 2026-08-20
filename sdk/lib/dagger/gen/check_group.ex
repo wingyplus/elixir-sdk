@@ -32,7 +32,7 @@ defmodule Dagger.CheckGroup do
   @spec list(t()) :: {:ok, [Dagger.Check.t()]} | {:error, term()}
   def list(%__MODULE__{} = check_group) do
     query_builder =
-      check_group.query_builder |> QB.select("list") |> QB.select("id")
+      check_group.query_builder |> QB.select("list") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(check_group.client, query_builder) do
       {:ok,
@@ -40,8 +40,7 @@ defmodule Dagger.CheckGroup do
          %Dagger.Check{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Check"),
            client: check_group.client
          }
@@ -69,9 +68,7 @@ defmodule Dagger.CheckGroup do
   @spec run(t(), [{:fail_fast, boolean() | nil}]) :: Dagger.CheckGroup.t()
   def run(%__MODULE__{} = check_group, optional_args \\ []) do
     query_builder =
-      check_group.query_builder
-      |> QB.select("run")
-      |> QB.maybe_put_arg("failFast", optional_args[:fail_fast])
+      check_group.query_builder |> QB.select("run", failFast: optional_args[:fail_fast])
 
     %Dagger.CheckGroup{
       query_builder: query_builder,
@@ -96,8 +93,7 @@ defimpl Nestru.Decoder, for: Dagger.CheckGroup do
      %Dagger.CheckGroup{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("CheckGroup"),
        client: dag.client
      }}

@@ -21,7 +21,7 @@ defmodule Dagger.Client do
   @spec address(t(), String.t()) :: Dagger.Address.t()
   def address(%__MODULE__{} = client, value) do
     query_builder =
-      client.query_builder |> QB.select("address") |> QB.put_arg("value", value)
+      client.query_builder |> QB.select("address", value: value)
 
     %Dagger.Address{
       query_builder: query_builder,
@@ -40,14 +40,12 @@ defmodule Dagger.Client do
   def cache_volume(%__MODULE__{} = client, key, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("cacheVolume")
-      |> QB.put_arg("key", key)
-      |> QB.maybe_put_arg(
-        "source",
-        if(optional_args[:source], do: Dagger.ID.id!(optional_args[:source]), else: nil)
+      |> QB.select("cacheVolume",
+        key: key,
+        source: if(optional_args[:source], do: Dagger.ID.id!(optional_args[:source]), else: nil),
+        sharing: optional_args[:sharing],
+        owner: optional_args[:owner]
       )
-      |> QB.maybe_put_arg("sharing", optional_args[:sharing])
-      |> QB.maybe_put_arg("owner", optional_args[:owner])
 
     %Dagger.CacheVolume{
       query_builder: query_builder,
@@ -91,9 +89,7 @@ defmodule Dagger.Client do
   @spec container(t(), [{:platform, Dagger.Platform.t() | nil}]) :: Dagger.Container.t()
   def container(%__MODULE__{} = client, optional_args \\ []) do
     query_builder =
-      client.query_builder
-      |> QB.select("container")
-      |> QB.maybe_put_arg("platform", optional_args[:platform])
+      client.query_builder |> QB.select("container", platform: optional_args[:platform])
 
     %Dagger.Container{
       query_builder: query_builder,
@@ -155,10 +151,11 @@ defmodule Dagger.Client do
   def current_type_defs(%__MODULE__{} = client, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("currentTypeDefs")
-      |> QB.maybe_put_arg("returnAllTypes", optional_args[:return_all_types])
-      |> QB.maybe_put_arg("hideCore", optional_args[:hide_core])
-      |> QB.select("id")
+      |> QB.select("currentTypeDefs",
+        returnAllTypes: optional_args[:return_all_types],
+        hideCore: optional_args[:hide_core]
+      )
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(client.client, query_builder) do
       {:ok,
@@ -166,8 +163,7 @@ defmodule Dagger.Client do
          %Dagger.TypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("TypeDef"),
            client: client.client
          }
@@ -239,9 +235,7 @@ defmodule Dagger.Client do
   def engine_volume(%__MODULE__{} = client, name, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("engineVolume")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("subdir", optional_args[:subdir])
+      |> QB.select("engineVolume", name: name, subdir: optional_args[:subdir])
 
     %Dagger.Volume{
       query_builder: query_builder,
@@ -255,9 +249,7 @@ defmodule Dagger.Client do
   @spec env_file(t(), [{:expand, boolean() | nil}]) :: Dagger.EnvFile.t()
   def env_file(%__MODULE__{} = client, optional_args \\ []) do
     query_builder =
-      client.query_builder
-      |> QB.select("envFile")
-      |> QB.maybe_put_arg("expand", optional_args[:expand])
+      client.query_builder |> QB.select("envFile", expand: optional_args[:expand])
 
     %Dagger.EnvFile{
       query_builder: query_builder,
@@ -271,7 +263,7 @@ defmodule Dagger.Client do
   @spec error(t(), String.t()) :: Dagger.Error.t()
   def error(%__MODULE__{} = client, message) do
     query_builder =
-      client.query_builder |> QB.select("error") |> QB.put_arg("message", message)
+      client.query_builder |> QB.select("error", message: message)
 
     %Dagger.Error{
       query_builder: query_builder,
@@ -286,10 +278,11 @@ defmodule Dagger.Client do
   def file(%__MODULE__{} = client, name, contents, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("file")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("contents", contents)
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("file",
+        name: name,
+        contents: contents,
+        permissions: optional_args[:permissions]
+      )
 
     %Dagger.File{
       query_builder: query_builder,
@@ -304,9 +297,7 @@ defmodule Dagger.Client do
   def function(%__MODULE__{} = client, name, return_type) do
     query_builder =
       client.query_builder
-      |> QB.select("function")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("returnType", Dagger.ID.id!(return_type))
+      |> QB.select("function", name: name, returnType: Dagger.ID.id!(return_type))
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -320,9 +311,7 @@ defmodule Dagger.Client do
   @spec generated_code(t(), Dagger.Directory.t()) :: Dagger.GeneratedCode.t()
   def generated_code(%__MODULE__{} = client, code) do
     query_builder =
-      client.query_builder
-      |> QB.select("generatedCode")
-      |> QB.put_arg("code", Dagger.ID.id!(code))
+      client.query_builder |> QB.select("generatedCode", code: Dagger.ID.id!(code))
 
     %Dagger.GeneratedCode{
       query_builder: query_builder,
@@ -345,38 +334,31 @@ defmodule Dagger.Client do
   def git(%__MODULE__{} = client, url, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("git")
-      |> QB.put_arg("url", url)
-      |> QB.maybe_put_arg("keepGitDir", optional_args[:keep_git_dir])
-      |> QB.maybe_put_arg("sshKnownHosts", optional_args[:ssh_known_hosts])
-      |> QB.maybe_put_arg(
-        "sshAuthSocket",
-        if(optional_args[:ssh_auth_socket],
-          do: Dagger.ID.id!(optional_args[:ssh_auth_socket]),
-          else: nil
-        )
-      )
-      |> QB.maybe_put_arg("httpAuthUsername", optional_args[:http_auth_username])
-      |> QB.maybe_put_arg(
-        "httpAuthToken",
-        if(optional_args[:http_auth_token],
-          do: Dagger.ID.id!(optional_args[:http_auth_token]),
-          else: nil
-        )
-      )
-      |> QB.maybe_put_arg(
-        "httpAuthHeader",
-        if(optional_args[:http_auth_header],
-          do: Dagger.ID.id!(optional_args[:http_auth_header]),
-          else: nil
-        )
-      )
-      |> QB.maybe_put_arg(
-        "experimentalServiceHost",
-        if(optional_args[:experimental_service_host],
-          do: Dagger.ID.id!(optional_args[:experimental_service_host]),
-          else: nil
-        )
+      |> QB.select("git",
+        url: url,
+        keepGitDir: optional_args[:keep_git_dir],
+        sshKnownHosts: optional_args[:ssh_known_hosts],
+        sshAuthSocket:
+          if(optional_args[:ssh_auth_socket],
+            do: Dagger.ID.id!(optional_args[:ssh_auth_socket]),
+            else: nil
+          ),
+        httpAuthUsername: optional_args[:http_auth_username],
+        httpAuthToken:
+          if(optional_args[:http_auth_token],
+            do: Dagger.ID.id!(optional_args[:http_auth_token]),
+            else: nil
+          ),
+        httpAuthHeader:
+          if(optional_args[:http_auth_header],
+            do: Dagger.ID.id!(optional_args[:http_auth_header]),
+            else: nil
+          ),
+        experimentalServiceHost:
+          if(optional_args[:experimental_service_host],
+            do: Dagger.ID.id!(optional_args[:experimental_service_host]),
+            else: nil
+          )
       )
 
     %Dagger.GitRepository{
@@ -412,21 +394,21 @@ defmodule Dagger.Client do
   def http(%__MODULE__{} = client, url, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("http")
-      |> QB.put_arg("url", url)
-      |> QB.maybe_put_arg("name", optional_args[:name])
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
-      |> QB.maybe_put_arg("checksum", optional_args[:checksum])
-      |> QB.maybe_put_arg(
-        "authHeader",
-        if(optional_args[:auth_header], do: Dagger.ID.id!(optional_args[:auth_header]), else: nil)
-      )
-      |> QB.maybe_put_arg(
-        "experimentalServiceHost",
-        if(optional_args[:experimental_service_host],
-          do: Dagger.ID.id!(optional_args[:experimental_service_host]),
-          else: nil
-        )
+      |> QB.select("http",
+        url: url,
+        name: optional_args[:name],
+        permissions: optional_args[:permissions],
+        checksum: optional_args[:checksum],
+        authHeader:
+          if(optional_args[:auth_header],
+            do: Dagger.ID.id!(optional_args[:auth_header]),
+            else: nil
+          ),
+        experimentalServiceHost:
+          if(optional_args[:experimental_service_host],
+            do: Dagger.ID.id!(optional_args[:experimental_service_host]),
+            else: nil
+          )
       )
 
     %Dagger.File{
@@ -471,9 +453,7 @@ defmodule Dagger.Client do
   def llm(%__MODULE__{} = client, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("llm")
-      |> QB.maybe_put_arg("model", optional_args[:model])
-      |> QB.maybe_put_arg("provider", optional_args[:provider])
+      |> QB.select("llm", model: optional_args[:model], provider: optional_args[:provider])
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -507,12 +487,13 @@ defmodule Dagger.Client do
   def module_source(%__MODULE__{} = client, ref_string, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("moduleSource")
-      |> QB.put_arg("refString", ref_string)
-      |> QB.maybe_put_arg("refPin", optional_args[:ref_pin])
-      |> QB.maybe_put_arg("disableFindUp", optional_args[:disable_find_up])
-      |> QB.maybe_put_arg("allowNotExists", optional_args[:allow_not_exists])
-      |> QB.maybe_put_arg("requireKind", optional_args[:require_kind])
+      |> QB.select("moduleSource",
+        refString: ref_string,
+        refPin: optional_args[:ref_pin],
+        disableFindUp: optional_args[:disable_find_up],
+        allowNotExists: optional_args[:allow_not_exists],
+        requireKind: optional_args[:require_kind]
+      )
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -526,7 +507,7 @@ defmodule Dagger.Client do
   @spec node(t(), String.t()) :: Dagger.Node.t() | nil
   def node(%__MODULE__{} = client, id) do
     query_builder =
-      client.query_builder |> QB.select("node") |> QB.put_arg("id", id)
+      client.query_builder |> QB.select("node", id: id)
 
     %Dagger.Node{
       query_builder: query_builder,
@@ -540,7 +521,7 @@ defmodule Dagger.Client do
   @spec schema(t(), Dagger.JSON.t()) :: Dagger.Schema.t()
   def schema(%__MODULE__{} = client, json) do
     query_builder =
-      client.query_builder |> QB.select("schema") |> QB.put_arg("json", json)
+      client.query_builder |> QB.select("schema", json: json)
 
     %Dagger.Schema{
       query_builder: query_builder,
@@ -554,10 +535,7 @@ defmodule Dagger.Client do
   @spec secret(t(), String.t(), [{:cache_key, String.t() | nil}]) :: Dagger.Secret.t()
   def secret(%__MODULE__{} = client, uri, optional_args \\ []) do
     query_builder =
-      client.query_builder
-      |> QB.select("secret")
-      |> QB.put_arg("uri", uri)
-      |> QB.maybe_put_arg("cacheKey", optional_args[:cache_key])
+      client.query_builder |> QB.select("secret", uri: uri, cacheKey: optional_args[:cache_key])
 
     %Dagger.Secret{
       query_builder: query_builder,
@@ -573,10 +551,7 @@ defmodule Dagger.Client do
   @spec set_secret(t(), String.t(), String.t()) :: Dagger.Secret.t()
   def set_secret(%__MODULE__{} = client, name, plaintext) do
     query_builder =
-      client.query_builder
-      |> QB.select("setSecret")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("plaintext", plaintext)
+      client.query_builder |> QB.select("setSecret", name: name, plaintext: plaintext)
 
     %Dagger.Secret{
       query_builder: query_builder,
@@ -591,10 +566,7 @@ defmodule Dagger.Client do
   def source_map(%__MODULE__{} = client, filename, line, column) do
     query_builder =
       client.query_builder
-      |> QB.select("sourceMap")
-      |> QB.put_arg("filename", filename)
-      |> QB.put_arg("line", line)
-      |> QB.put_arg("column", column)
+      |> QB.select("sourceMap", filename: filename, line: line, column: column)
 
     %Dagger.SourceMap{
       query_builder: query_builder,
@@ -614,24 +586,21 @@ defmodule Dagger.Client do
   def sshfs_volume(%__MODULE__{} = client, endpoint, private_key, optional_args \\ []) do
     query_builder =
       client.query_builder
-      |> QB.select("sshfsVolume")
-      |> QB.put_arg("endpoint", endpoint)
-      |> QB.put_arg("privateKey", Dagger.ID.id!(private_key))
-      |> QB.maybe_put_arg(
-        "knownHosts",
-        if(optional_args[:known_hosts], do: Dagger.ID.id!(optional_args[:known_hosts]), else: nil)
-      )
-      |> QB.maybe_put_arg("cacheKey", optional_args[:cache_key])
-      |> QB.maybe_put_arg(
-        "insecureSkipHostKeyCheck",
-        optional_args[:insecure_skip_host_key_check]
-      )
-      |> QB.maybe_put_arg(
-        "experimentalServiceHost",
-        if(optional_args[:experimental_service_host],
-          do: Dagger.ID.id!(optional_args[:experimental_service_host]),
-          else: nil
-        )
+      |> QB.select("sshfsVolume",
+        endpoint: endpoint,
+        privateKey: Dagger.ID.id!(private_key),
+        knownHosts:
+          if(optional_args[:known_hosts],
+            do: Dagger.ID.id!(optional_args[:known_hosts]),
+            else: nil
+          ),
+        cacheKey: optional_args[:cache_key],
+        insecureSkipHostKeyCheck: optional_args[:insecure_skip_host_key_check],
+        experimentalServiceHost:
+          if(optional_args[:experimental_service_host],
+            do: Dagger.ID.id!(optional_args[:experimental_service_host]),
+            else: nil
+          )
       )
 
     %Dagger.Volume{
@@ -682,8 +651,7 @@ defimpl Nestru.Decoder, for: Dagger.Client do
      %Dagger.Client{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Query"),
        client: dag.client
      }}

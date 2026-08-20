@@ -59,17 +59,18 @@ defmodule Dagger.Codegen.RenderGuardsTest do
                    is_struct(at, DateTime) do
           query_builder =
             container.query_builder
-            |> QB.select("withEverything")
-            |> QB.put_arg("name", name)
-            |> QB.put_arg("count", count)
-            |> QB.put_arg("expand", expand)
-            |> QB.put_arg("config", config)
-            |> QB.put_arg("args", args)
-            |> QB.put_arg("source", Dagger.ID.id!(source))
-            |> QB.put_arg("object", Dagger.ID.id!(object))
-            |> QB.put_arg("sharing", sharing)
-            |> QB.put_arg("at", at)
-            |> QB.maybe_put_arg("owner", optional_args[:owner])
+            |> QB.select("withEverything",
+              name: name,
+              count: count,
+              expand: expand,
+              config: config,
+              args: args,
+              source: Dagger.ID.id!(source),
+              object: Dagger.ID.id!(object),
+              sharing: sharing,
+              at: at,
+              owner: optional_args[:owner]
+            )
 
           %Dagger.Container{
             query_builder: query_builder,

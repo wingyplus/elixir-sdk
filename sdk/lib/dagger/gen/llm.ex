@@ -43,7 +43,7 @@ defmodule Dagger.LLM do
   @spec fork(t(), String.t()) :: Dagger.LLM.t()
   def fork(%__MODULE__{} = llm, label) do
     query_builder =
-      llm.query_builder |> QB.select("fork") |> QB.put_arg("label", label)
+      llm.query_builder |> QB.select("fork", label: label)
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -92,9 +92,10 @@ defmodule Dagger.LLM do
   def loop(%__MODULE__{} = llm, optional_args \\ []) do
     query_builder =
       llm.query_builder
-      |> QB.select("loop")
-      |> QB.maybe_put_arg("maxSteps", optional_args[:max_steps])
-      |> QB.maybe_put_arg("maxTokens", optional_args[:max_tokens])
+      |> QB.select("loop",
+        maxSteps: optional_args[:max_steps],
+        maxTokens: optional_args[:max_tokens]
+      )
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -108,7 +109,7 @@ defmodule Dagger.LLM do
   @spec messages(t()) :: {:ok, [Dagger.LLMMessage.t()]} | {:error, term()}
   def messages(%__MODULE__{} = llm) do
     query_builder =
-      llm.query_builder |> QB.select("messages") |> QB.select("id")
+      llm.query_builder |> QB.select("messages") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(llm.client, query_builder) do
       {:ok,
@@ -116,8 +117,7 @@ defmodule Dagger.LLM do
          %Dagger.LLMMessage{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("LLMMessage"),
            client: llm.client
          }
@@ -182,8 +182,7 @@ defmodule Dagger.LLM do
        %Dagger.LLM{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("LLM"),
          client: llm.client
        }}
@@ -196,7 +195,7 @@ defmodule Dagger.LLM do
   @spec skills(t()) :: {:ok, [Dagger.LLMSkill.t()]} | {:error, term()}
   def skills(%__MODULE__{} = llm) do
     query_builder =
-      llm.query_builder |> QB.select("skills") |> QB.select("id")
+      llm.query_builder |> QB.select("skills") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(llm.client, query_builder) do
       {:ok,
@@ -204,8 +203,7 @@ defmodule Dagger.LLM do
          %Dagger.LLMSkill{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("LLMSkill"),
            client: llm.client
          }
@@ -219,9 +217,7 @@ defmodule Dagger.LLM do
   @spec step(t(), [{:max_tokens, integer() | nil}]) :: Dagger.LLM.t()
   def step(%__MODULE__{} = llm, optional_args \\ []) do
     query_builder =
-      llm.query_builder
-      |> QB.select("step")
-      |> QB.maybe_put_arg("maxTokens", optional_args[:max_tokens])
+      llm.query_builder |> QB.select("step", maxTokens: optional_args[:max_tokens])
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -242,8 +238,7 @@ defmodule Dagger.LLM do
        %Dagger.LLM{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("LLM"),
          client: llm.client
        }}
@@ -292,10 +287,7 @@ defmodule Dagger.LLM do
   @spec with_mcp_server(t(), String.t(), Dagger.Service.t()) :: Dagger.LLM.t()
   def with_mcp_server(%__MODULE__{} = llm, name, service) do
     query_builder =
-      llm.query_builder
-      |> QB.select("withMCPServer")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("service", Dagger.ID.id!(service))
+      llm.query_builder |> QB.select("withMCPServer", name: name, service: Dagger.ID.id!(service))
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -310,9 +302,7 @@ defmodule Dagger.LLM do
   def with_model(%__MODULE__{} = llm, model, optional_args \\ []) do
     query_builder =
       llm.query_builder
-      |> QB.select("withModel")
-      |> QB.put_arg("model", model)
-      |> QB.maybe_put_arg("provider", optional_args[:provider])
+      |> QB.select("withModel", model: model, provider: optional_args[:provider])
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -326,7 +316,7 @@ defmodule Dagger.LLM do
   @spec with_prompt(t(), String.t()) :: Dagger.LLM.t()
   def with_prompt(%__MODULE__{} = llm, prompt) do
     query_builder =
-      llm.query_builder |> QB.select("withPrompt") |> QB.put_arg("prompt", prompt)
+      llm.query_builder |> QB.select("withPrompt", prompt: prompt)
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -340,7 +330,7 @@ defmodule Dagger.LLM do
   @spec with_prompt_file(t(), Dagger.File.t()) :: Dagger.LLM.t()
   def with_prompt_file(%__MODULE__{} = llm, file) do
     query_builder =
-      llm.query_builder |> QB.select("withPromptFile") |> QB.put_arg("file", Dagger.ID.id!(file))
+      llm.query_builder |> QB.select("withPromptFile", file: Dagger.ID.id!(file))
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -354,7 +344,7 @@ defmodule Dagger.LLM do
   @spec with_reasoning_effort(t(), String.t()) :: Dagger.LLM.t()
   def with_reasoning_effort(%__MODULE__{} = llm, effort) do
     query_builder =
-      llm.query_builder |> QB.select("withReasoningEffort") |> QB.put_arg("effort", effort)
+      llm.query_builder |> QB.select("withReasoningEffort", effort: effort)
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -375,13 +365,14 @@ defmodule Dagger.LLM do
   def with_response(%__MODULE__{} = llm, content, optional_args \\ []) do
     query_builder =
       llm.query_builder
-      |> QB.select("withResponse")
-      |> QB.put_arg("content", content)
-      |> QB.maybe_put_arg("inputTokens", optional_args[:input_tokens])
-      |> QB.maybe_put_arg("outputTokens", optional_args[:output_tokens])
-      |> QB.maybe_put_arg("cachedTokenReads", optional_args[:cached_token_reads])
-      |> QB.maybe_put_arg("cachedTokenWrites", optional_args[:cached_token_writes])
-      |> QB.maybe_put_arg("totalTokens", optional_args[:total_tokens])
+      |> QB.select("withResponse",
+        content: content,
+        inputTokens: optional_args[:input_tokens],
+        outputTokens: optional_args[:output_tokens],
+        cachedTokenReads: optional_args[:cached_token_reads],
+        cachedTokenWrites: optional_args[:cached_token_writes],
+        totalTokens: optional_args[:total_tokens]
+      )
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -395,9 +386,7 @@ defmodule Dagger.LLM do
   @spec with_skills(t(), Dagger.Directory.t()) :: Dagger.LLM.t()
   def with_skills(%__MODULE__{} = llm, directory) do
     query_builder =
-      llm.query_builder
-      |> QB.select("withSkills")
-      |> QB.put_arg("directory", Dagger.ID.id!(directory))
+      llm.query_builder |> QB.select("withSkills", directory: Dagger.ID.id!(directory))
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -411,7 +400,7 @@ defmodule Dagger.LLM do
   @spec with_system_prompt(t(), String.t()) :: Dagger.LLM.t()
   def with_system_prompt(%__MODULE__{} = llm, prompt) do
     query_builder =
-      llm.query_builder |> QB.select("withSystemPrompt") |> QB.put_arg("prompt", prompt)
+      llm.query_builder |> QB.select("withSystemPrompt", prompt: prompt)
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -426,10 +415,7 @@ defmodule Dagger.LLM do
   def with_tool_result(%__MODULE__{} = llm, call_id, content, errored) do
     query_builder =
       llm.query_builder
-      |> QB.select("withToolResult")
-      |> QB.put_arg("callId", call_id)
-      |> QB.put_arg("content", content)
-      |> QB.put_arg("errored", errored)
+      |> QB.select("withToolResult", callId: call_id, content: content, errored: errored)
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -444,9 +430,7 @@ defmodule Dagger.LLM do
   def with_tools(%__MODULE__{} = llm, object, optional_args \\ []) do
     query_builder =
       llm.query_builder
-      |> QB.select("withTools")
-      |> QB.put_arg("object", Dagger.ID.id!(object))
-      |> QB.maybe_put_arg("except", optional_args[:except])
+      |> QB.select("withTools", object: Dagger.ID.id!(object), except: optional_args[:except])
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -460,9 +444,7 @@ defmodule Dagger.LLM do
   @spec with_workspace(t(), Dagger.Workspace.t()) :: Dagger.LLM.t()
   def with_workspace(%__MODULE__{} = llm, workspace) do
     query_builder =
-      llm.query_builder
-      |> QB.select("withWorkspace")
-      |> QB.put_arg("workspace", Dagger.ID.id!(workspace))
+      llm.query_builder |> QB.select("withWorkspace", workspace: Dagger.ID.id!(workspace))
 
     %Dagger.LLM{
       query_builder: query_builder,
@@ -543,8 +525,7 @@ defimpl Nestru.Decoder, for: Dagger.LLM do
      %Dagger.LLM{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("LLM"),
        client: dag.client
      }}

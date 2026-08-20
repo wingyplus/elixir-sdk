@@ -23,7 +23,7 @@ defmodule Dagger.Function do
   @spec args(t()) :: {:ok, [Dagger.FunctionArg.t()]} | {:error, term()}
   def args(%__MODULE__{} = function) do
     query_builder =
-      function.query_builder |> QB.select("args") |> QB.select("id")
+      function.query_builder |> QB.select("args") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(function.client, query_builder) do
       {:ok,
@@ -31,8 +31,7 @@ defmodule Dagger.Function do
          %Dagger.FunctionArg{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("FunctionArg"),
            client: function.client
          }
@@ -152,19 +151,18 @@ defmodule Dagger.Function do
   def with_arg(%__MODULE__{} = function, name, type_def, optional_args \\ []) do
     query_builder =
       function.query_builder
-      |> QB.select("withArg")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("typeDef", Dagger.ID.id!(type_def))
-      |> QB.maybe_put_arg("description", optional_args[:description])
-      |> QB.maybe_put_arg("defaultValue", optional_args[:default_value])
-      |> QB.maybe_put_arg("defaultPath", optional_args[:default_path])
-      |> QB.maybe_put_arg("ignore", optional_args[:ignore])
-      |> QB.maybe_put_arg(
-        "sourceMap",
-        if(optional_args[:source_map], do: Dagger.ID.id!(optional_args[:source_map]), else: nil)
+      |> QB.select("withArg",
+        name: name,
+        typeDef: Dagger.ID.id!(type_def),
+        description: optional_args[:description],
+        defaultValue: optional_args[:default_value],
+        defaultPath: optional_args[:default_path],
+        ignore: optional_args[:ignore],
+        sourceMap:
+          if(optional_args[:source_map], do: Dagger.ID.id!(optional_args[:source_map]), else: nil),
+        deprecated: optional_args[:deprecated],
+        defaultAddress: optional_args[:default_address]
       )
-      |> QB.maybe_put_arg("deprecated", optional_args[:deprecated])
-      |> QB.maybe_put_arg("defaultAddress", optional_args[:default_address])
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -180,9 +178,7 @@ defmodule Dagger.Function do
   def with_cache_policy(%__MODULE__{} = function, policy, optional_args \\ []) do
     query_builder =
       function.query_builder
-      |> QB.select("withCachePolicy")
-      |> QB.put_arg("policy", policy)
-      |> QB.maybe_put_arg("timeToLive", optional_args[:time_to_live])
+      |> QB.select("withCachePolicy", policy: policy, timeToLive: optional_args[:time_to_live])
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -210,9 +206,7 @@ defmodule Dagger.Function do
   @spec with_deprecated(t(), [{:reason, String.t() | nil}]) :: Dagger.Function.t()
   def with_deprecated(%__MODULE__{} = function, optional_args \\ []) do
     query_builder =
-      function.query_builder
-      |> QB.select("withDeprecated")
-      |> QB.maybe_put_arg("reason", optional_args[:reason])
+      function.query_builder |> QB.select("withDeprecated", reason: optional_args[:reason])
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -226,9 +220,7 @@ defmodule Dagger.Function do
   @spec with_description(t(), String.t()) :: Dagger.Function.t()
   def with_description(%__MODULE__{} = function, description) do
     query_builder =
-      function.query_builder
-      |> QB.select("withDescription")
-      |> QB.put_arg("description", description)
+      function.query_builder |> QB.select("withDescription", description: description)
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -256,9 +248,7 @@ defmodule Dagger.Function do
   @spec with_source_map(t(), Dagger.SourceMap.t()) :: Dagger.Function.t()
   def with_source_map(%__MODULE__{} = function, source_map) do
     query_builder =
-      function.query_builder
-      |> QB.select("withSourceMap")
-      |> QB.put_arg("sourceMap", Dagger.ID.id!(source_map))
+      function.query_builder |> QB.select("withSourceMap", sourceMap: Dagger.ID.id!(source_map))
 
     %Dagger.Function{
       query_builder: query_builder,
@@ -297,8 +287,7 @@ defimpl Nestru.Decoder, for: Dagger.Function do
      %Dagger.Function{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Function"),
        client: dag.client
      }}

@@ -57,7 +57,7 @@ defmodule Dagger.ObjectTypeDef do
   @spec fields(t()) :: {:ok, [Dagger.FieldTypeDef.t()]} | {:error, term()}
   def fields(%__MODULE__{} = object_type_def) do
     query_builder =
-      object_type_def.query_builder |> QB.select("fields") |> QB.select("id")
+      object_type_def.query_builder |> QB.select("fields") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(object_type_def.client, query_builder) do
       {:ok,
@@ -65,8 +65,7 @@ defmodule Dagger.ObjectTypeDef do
          %Dagger.FieldTypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("FieldTypeDef"),
            client: object_type_def.client
          }
@@ -80,7 +79,7 @@ defmodule Dagger.ObjectTypeDef do
   @spec functions(t()) :: {:ok, [Dagger.Function.t()]} | {:error, term()}
   def functions(%__MODULE__{} = object_type_def) do
     query_builder =
-      object_type_def.query_builder |> QB.select("functions") |> QB.select("id")
+      object_type_def.query_builder |> QB.select("functions") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(object_type_def.client, query_builder) do
       {:ok,
@@ -88,8 +87,7 @@ defmodule Dagger.ObjectTypeDef do
          %Dagger.Function{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Function"),
            client: object_type_def.client
          }
@@ -161,8 +159,7 @@ defimpl Nestru.Decoder, for: Dagger.ObjectTypeDef do
      %Dagger.ObjectTypeDef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("ObjectTypeDef"),
        client: dag.client
      }}

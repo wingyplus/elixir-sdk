@@ -74,7 +74,7 @@ defmodule Dagger.Changeset do
   @spec diff_stats(t()) :: {:ok, [Dagger.DiffStat.t()]} | {:error, term()}
   def diff_stats(%__MODULE__{} = changeset) do
     query_builder =
-      changeset.query_builder |> QB.select("diffStats") |> QB.select("id")
+      changeset.query_builder |> QB.select("diffStats") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(changeset.client, query_builder) do
       {:ok,
@@ -82,8 +82,7 @@ defmodule Dagger.Changeset do
          %Dagger.DiffStat{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("DiffStat"),
            client: changeset.client
          }
@@ -97,7 +96,7 @@ defmodule Dagger.Changeset do
   @spec export(t(), String.t()) :: {:ok, String.t()} | {:error, term()}
   def export(%__MODULE__{} = changeset, path) do
     query_builder =
-      changeset.query_builder |> QB.select("export") |> QB.put_arg("path", path)
+      changeset.query_builder |> QB.select("export", path: path)
 
     Client.execute(changeset.client, query_builder)
   end
@@ -173,8 +172,7 @@ defmodule Dagger.Changeset do
        %Dagger.Changeset{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Changeset"),
          client: changeset.client
        }}
@@ -192,9 +190,10 @@ defmodule Dagger.Changeset do
   def with_changeset(%__MODULE__{} = changeset, changes, optional_args \\ []) do
     query_builder =
       changeset.query_builder
-      |> QB.select("withChangeset")
-      |> QB.put_arg("changes", Dagger.ID.id!(changes))
-      |> QB.maybe_put_arg("onConflict", optional_args[:on_conflict])
+      |> QB.select("withChangeset",
+        changes: Dagger.ID.id!(changes),
+        onConflict: optional_args[:on_conflict]
+      )
 
     %Dagger.Changeset{
       query_builder: query_builder,
@@ -215,9 +214,7 @@ defmodule Dagger.Changeset do
   def with_changesets(%__MODULE__{} = changeset, changes, optional_args \\ []) do
     query_builder =
       changeset.query_builder
-      |> QB.select("withChangesets")
-      |> QB.put_arg("changes", changes)
-      |> QB.maybe_put_arg("onConflict", optional_args[:on_conflict])
+      |> QB.select("withChangesets", changes: changes, onConflict: optional_args[:on_conflict])
 
     %Dagger.Changeset{
       query_builder: query_builder,
@@ -242,8 +239,7 @@ defimpl Nestru.Decoder, for: Dagger.Changeset do
      %Dagger.Changeset{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Changeset"),
        client: dag.client
      }}

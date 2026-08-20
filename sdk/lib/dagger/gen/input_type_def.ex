@@ -24,7 +24,7 @@ defmodule Dagger.InputTypeDef do
   @spec fields(t()) :: {:ok, [Dagger.FieldTypeDef.t()]} | {:error, term()}
   def fields(%__MODULE__{} = input_type_def) do
     query_builder =
-      input_type_def.query_builder |> QB.select("fields") |> QB.select("id")
+      input_type_def.query_builder |> QB.select("fields") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(input_type_def.client, query_builder) do
       {:ok,
@@ -32,8 +32,7 @@ defmodule Dagger.InputTypeDef do
          %Dagger.FieldTypeDef{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("FieldTypeDef"),
            client: input_type_def.client
          }
@@ -80,8 +79,7 @@ defimpl Nestru.Decoder, for: Dagger.InputTypeDef do
      %Dagger.InputTypeDef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("InputTypeDef"),
        client: dag.client
      }}

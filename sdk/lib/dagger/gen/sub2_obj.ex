@@ -59,8 +59,7 @@ defimpl Nestru.Decoder, for: Dagger.Sub2Obj do
      %Dagger.Sub2Obj{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Sub2Obj"),
        client: dag.client
      }}

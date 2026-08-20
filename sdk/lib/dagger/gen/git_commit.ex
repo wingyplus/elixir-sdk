@@ -23,8 +23,7 @@ defmodule Dagger.GitCommit do
   def ancestor_release_tag(%__MODULE__{} = git_commit, optional_args \\ []) do
     query_builder =
       git_commit.query_builder
-      |> QB.select("ancestorReleaseTag")
-      |> QB.maybe_put_arg("includePreRelease", optional_args[:include_pre_release])
+      |> QB.select("ancestorReleaseTag", includePreRelease: optional_args[:include_pre_release])
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -160,8 +159,7 @@ defmodule Dagger.GitCommit do
   def release_tag(%__MODULE__{} = git_commit, optional_args \\ []) do
     query_builder =
       git_commit.query_builder
-      |> QB.select("releaseTag")
-      |> QB.maybe_put_arg("includePreRelease", optional_args[:include_pre_release])
+      |> QB.select("releaseTag", includePreRelease: optional_args[:include_pre_release])
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -202,10 +200,11 @@ defmodule Dagger.GitCommit do
   def tree(%__MODULE__{} = git_commit, optional_args \\ []) do
     query_builder =
       git_commit.query_builder
-      |> QB.select("tree")
-      |> QB.maybe_put_arg("discardGitDir", optional_args[:discard_git_dir])
-      |> QB.maybe_put_arg("depth", optional_args[:depth])
-      |> QB.maybe_put_arg("includeTags", optional_args[:include_tags])
+      |> QB.select("tree",
+        discardGitDir: optional_args[:discard_git_dir],
+        depth: optional_args[:depth],
+        includeTags: optional_args[:include_tags]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -230,8 +229,7 @@ defimpl Nestru.Decoder, for: Dagger.GitCommit do
      %Dagger.GitCommit{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("GitCommit"),
        client: dag.client
      }}

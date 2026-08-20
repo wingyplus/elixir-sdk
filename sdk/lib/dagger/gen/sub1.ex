@@ -18,7 +18,7 @@ defmodule Dagger.Sub1 do
   @spec fn_(t(), String.t()) :: Dagger.Sub1Obj.t()
   def fn_(%__MODULE__{} = sub1, s) do
     query_builder =
-      sub1.query_builder |> QB.select("fn") |> QB.put_arg("s", s)
+      sub1.query_builder |> QB.select("fn", s: s)
 
     %Dagger.Sub1Obj{
       query_builder: query_builder,
@@ -54,8 +54,7 @@ defimpl Nestru.Decoder, for: Dagger.Sub1 do
      %Dagger.Sub1{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Sub1"),
        client: dag.client
      }}

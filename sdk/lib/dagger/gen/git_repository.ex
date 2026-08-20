@@ -21,9 +21,7 @@ defmodule Dagger.GitRepository do
   @spec as_workspace(t(), [{:cwd, String.t() | nil}]) :: Dagger.Workspace.t()
   def as_workspace(%__MODULE__{} = git_repository, optional_args \\ []) do
     query_builder =
-      git_repository.query_builder
-      |> QB.select("asWorkspace")
-      |> QB.maybe_put_arg("cwd", optional_args[:cwd])
+      git_repository.query_builder |> QB.select("asWorkspace", cwd: optional_args[:cwd])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -37,7 +35,7 @@ defmodule Dagger.GitRepository do
   @spec branch(t(), String.t()) :: Dagger.GitRef.t()
   def branch(%__MODULE__{} = git_repository, name) do
     query_builder =
-      git_repository.query_builder |> QB.select("branch") |> QB.put_arg("name", name)
+      git_repository.query_builder |> QB.select("branch", name: name)
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -51,9 +49,7 @@ defmodule Dagger.GitRepository do
   @spec branches(t(), [{:patterns, [String.t()]}]) :: {:ok, [String.t()]} | {:error, term()}
   def branches(%__MODULE__{} = git_repository, optional_args \\ []) do
     query_builder =
-      git_repository.query_builder
-      |> QB.select("branches")
-      |> QB.maybe_put_arg("patterns", optional_args[:patterns])
+      git_repository.query_builder |> QB.select("branches", patterns: optional_args[:patterns])
 
     Client.execute(git_repository.client, query_builder)
   end
@@ -64,7 +60,7 @@ defmodule Dagger.GitRepository do
   @spec commit(t(), String.t()) :: Dagger.GitCommit.t()
   def commit(%__MODULE__{} = git_repository, id) do
     query_builder =
-      git_repository.query_builder |> QB.select("commit") |> QB.put_arg("id", id)
+      git_repository.query_builder |> QB.select("commit", id: id)
 
     %Dagger.GitCommit{
       query_builder: query_builder,
@@ -117,7 +113,7 @@ defmodule Dagger.GitRepository do
   @spec ref(t(), String.t()) :: Dagger.GitRef.t()
   def ref(%__MODULE__{} = git_repository, name) do
     query_builder =
-      git_repository.query_builder |> QB.select("ref") |> QB.put_arg("name", name)
+      git_repository.query_builder |> QB.select("ref", name: name)
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -131,7 +127,7 @@ defmodule Dagger.GitRepository do
   @spec tag(t(), String.t()) :: Dagger.GitRef.t()
   def tag(%__MODULE__{} = git_repository, name) do
     query_builder =
-      git_repository.query_builder |> QB.select("tag") |> QB.put_arg("name", name)
+      git_repository.query_builder |> QB.select("tag", name: name)
 
     %Dagger.GitRef{
       query_builder: query_builder,
@@ -145,9 +141,7 @@ defmodule Dagger.GitRepository do
   @spec tags(t(), [{:patterns, [String.t()]}]) :: {:ok, [String.t()]} | {:error, term()}
   def tags(%__MODULE__{} = git_repository, optional_args \\ []) do
     query_builder =
-      git_repository.query_builder
-      |> QB.select("tags")
-      |> QB.maybe_put_arg("patterns", optional_args[:patterns])
+      git_repository.query_builder |> QB.select("tags", patterns: optional_args[:patterns])
 
     Client.execute(git_repository.client, query_builder)
   end
@@ -194,8 +188,7 @@ defimpl Nestru.Decoder, for: Dagger.GitRepository do
      %Dagger.GitRepository{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("GitRepository"),
        client: dag.client
      }}

@@ -43,8 +43,7 @@ defimpl Nestru.Decoder, for: Dagger.ClientFilesyncMirror do
      %Dagger.ClientFilesyncMirror{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("ClientFilesyncMirror"),
        client: dag.client
      }}

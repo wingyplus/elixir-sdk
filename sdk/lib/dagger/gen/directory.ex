@@ -36,8 +36,7 @@ defmodule Dagger.Directory do
   def as_module(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("asModule")
-      |> QB.maybe_put_arg("sourceRootPath", optional_args[:source_root_path])
+      |> QB.select("asModule", sourceRootPath: optional_args[:source_root_path])
 
     %Dagger.Module{
       query_builder: query_builder,
@@ -52,8 +51,7 @@ defmodule Dagger.Directory do
   def as_module_source(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("asModuleSource")
-      |> QB.maybe_put_arg("sourceRootPath", optional_args[:source_root_path])
+      |> QB.select("asModuleSource", sourceRootPath: optional_args[:source_root_path])
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -67,9 +65,7 @@ defmodule Dagger.Directory do
   @spec as_workspace(t(), [{:cwd, String.t() | nil}]) :: Dagger.Workspace.t()
   def as_workspace(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
-      directory.query_builder
-      |> QB.select("asWorkspace")
-      |> QB.maybe_put_arg("cwd", optional_args[:cwd])
+      directory.query_builder |> QB.select("asWorkspace", cwd: optional_args[:cwd])
 
     %Dagger.Workspace{
       query_builder: query_builder,
@@ -85,7 +81,7 @@ defmodule Dagger.Directory do
   @spec changes(t(), Dagger.Directory.t()) :: Dagger.Changeset.t()
   def changes(%__MODULE__{} = directory, from) do
     query_builder =
-      directory.query_builder |> QB.select("changes") |> QB.put_arg("from", Dagger.ID.id!(from))
+      directory.query_builder |> QB.select("changes", from: Dagger.ID.id!(from))
 
     %Dagger.Changeset{
       query_builder: query_builder,
@@ -99,10 +95,7 @@ defmodule Dagger.Directory do
   @spec chown(t(), String.t(), String.t()) :: Dagger.Directory.t()
   def chown(%__MODULE__{} = directory, path, owner) do
     query_builder =
-      directory.query_builder
-      |> QB.select("chown")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("owner", owner)
+      directory.query_builder |> QB.select("chown", path: path, owner: owner)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -116,7 +109,7 @@ defmodule Dagger.Directory do
   @spec diff(t(), Dagger.Directory.t()) :: Dagger.Directory.t()
   def diff(%__MODULE__{} = directory, other) do
     query_builder =
-      directory.query_builder |> QB.select("diff") |> QB.put_arg("other", Dagger.ID.id!(other))
+      directory.query_builder |> QB.select("diff", other: Dagger.ID.id!(other))
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -141,7 +134,7 @@ defmodule Dagger.Directory do
   @spec directory(t(), String.t()) :: Dagger.Directory.t()
   def directory(%__MODULE__{} = directory, path) do
     query_builder =
-      directory.query_builder |> QB.select("directory") |> QB.put_arg("path", path)
+      directory.query_builder |> QB.select("directory", path: path)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -164,22 +157,18 @@ defmodule Dagger.Directory do
   def docker_build(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("dockerBuild")
-      |> QB.maybe_put_arg("dockerfile", optional_args[:dockerfile])
-      |> QB.maybe_put_arg("platform", optional_args[:platform])
-      |> QB.maybe_put_arg("buildArgs", optional_args[:build_args])
-      |> QB.maybe_put_arg("target", optional_args[:target])
-      |> QB.maybe_put_arg(
-        "secrets",
-        if(optional_args[:secrets],
-          do: Enum.map(optional_args[:secrets], &Dagger.ID.id!/1),
-          else: nil
-        )
-      )
-      |> QB.maybe_put_arg("noInit", optional_args[:no_init])
-      |> QB.maybe_put_arg(
-        "ssh",
-        if(optional_args[:ssh], do: Dagger.ID.id!(optional_args[:ssh]), else: nil)
+      |> QB.select("dockerBuild",
+        dockerfile: optional_args[:dockerfile],
+        platform: optional_args[:platform],
+        buildArgs: optional_args[:build_args],
+        target: optional_args[:target],
+        secrets:
+          if(optional_args[:secrets],
+            do: Enum.map(optional_args[:secrets], &Dagger.ID.id!/1),
+            else: nil
+          ),
+        noInit: optional_args[:no_init],
+        ssh: if(optional_args[:ssh], do: Dagger.ID.id!(optional_args[:ssh]), else: nil)
       )
 
     %Dagger.Container{
@@ -194,9 +183,7 @@ defmodule Dagger.Directory do
   @spec entries(t(), [{:path, String.t() | nil}]) :: {:ok, [String.t()]} | {:error, term()}
   def entries(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
-      directory.query_builder
-      |> QB.select("entries")
-      |> QB.maybe_put_arg("path", optional_args[:path])
+      directory.query_builder |> QB.select("entries", path: optional_args[:path])
 
     Client.execute(directory.client, query_builder)
   end
@@ -211,10 +198,11 @@ defmodule Dagger.Directory do
   def exists(%__MODULE__{} = directory, path, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("exists")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("expectedType", optional_args[:expected_type])
-      |> QB.maybe_put_arg("doNotFollowSymlinks", optional_args[:do_not_follow_symlinks])
+      |> QB.select("exists",
+        path: path,
+        expectedType: optional_args[:expected_type],
+        doNotFollowSymlinks: optional_args[:do_not_follow_symlinks]
+      )
 
     Client.execute(directory.client, query_builder)
   end
@@ -226,10 +214,7 @@ defmodule Dagger.Directory do
           {:ok, String.t()} | {:error, term()}
   def export(%__MODULE__{} = directory, path, optional_args \\ []) do
     query_builder =
-      directory.query_builder
-      |> QB.select("export")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("wipe", optional_args[:wipe])
+      directory.query_builder |> QB.select("export", path: path, wipe: optional_args[:wipe])
 
     Client.execute(directory.client, query_builder)
   end
@@ -240,7 +225,7 @@ defmodule Dagger.Directory do
   @spec file(t(), String.t()) :: Dagger.File.t()
   def file(%__MODULE__{} = directory, path) do
     query_builder =
-      directory.query_builder |> QB.select("file") |> QB.put_arg("path", path)
+      directory.query_builder |> QB.select("file", path: path)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -259,10 +244,11 @@ defmodule Dagger.Directory do
   def filter(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("filter")
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
+      |> QB.select("filter",
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -276,10 +262,7 @@ defmodule Dagger.Directory do
   @spec find_up(t(), String.t(), String.t()) :: {:ok, String.t() | nil} | {:error, term()}
   def find_up(%__MODULE__{} = directory, name, start) do
     query_builder =
-      directory.query_builder
-      |> QB.select("findUp")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("start", start)
+      directory.query_builder |> QB.select("findUp", name: name, start: start)
 
     Client.execute(directory.client, query_builder)
   end
@@ -290,7 +273,7 @@ defmodule Dagger.Directory do
   @spec glob(t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def glob(%__MODULE__{} = directory, pattern) do
     query_builder =
-      directory.query_builder |> QB.select("glob") |> QB.put_arg("pattern", pattern)
+      directory.query_builder |> QB.select("glob", pattern: pattern)
 
     Client.execute(directory.client, query_builder)
   end
@@ -337,19 +320,20 @@ defmodule Dagger.Directory do
   def search(%__MODULE__{} = directory, pattern, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("search")
-      |> QB.put_arg("pattern", pattern)
-      |> QB.maybe_put_arg("paths", optional_args[:paths])
-      |> QB.maybe_put_arg("globs", optional_args[:globs])
-      |> QB.maybe_put_arg("literal", optional_args[:literal])
-      |> QB.maybe_put_arg("multiline", optional_args[:multiline])
-      |> QB.maybe_put_arg("dotall", optional_args[:dotall])
-      |> QB.maybe_put_arg("insensitive", optional_args[:insensitive])
-      |> QB.maybe_put_arg("skipIgnored", optional_args[:skip_ignored])
-      |> QB.maybe_put_arg("skipHidden", optional_args[:skip_hidden])
-      |> QB.maybe_put_arg("filesOnly", optional_args[:files_only])
-      |> QB.maybe_put_arg("limit", optional_args[:limit])
-      |> QB.select("id")
+      |> QB.select("search",
+        pattern: pattern,
+        paths: optional_args[:paths],
+        globs: optional_args[:globs],
+        literal: optional_args[:literal],
+        multiline: optional_args[:multiline],
+        dotall: optional_args[:dotall],
+        insensitive: optional_args[:insensitive],
+        skipIgnored: optional_args[:skip_ignored],
+        skipHidden: optional_args[:skip_hidden],
+        filesOnly: optional_args[:files_only],
+        limit: optional_args[:limit]
+      )
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(directory.client, query_builder) do
       {:ok,
@@ -357,8 +341,7 @@ defmodule Dagger.Directory do
          %Dagger.SearchResult{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("SearchResult"),
            client: directory.client
          }
@@ -374,9 +357,10 @@ defmodule Dagger.Directory do
   def stat(%__MODULE__{} = directory, path, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("stat")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("doNotFollowSymlinks", optional_args[:do_not_follow_symlinks])
+      |> QB.select("stat",
+        path: path,
+        doNotFollowSymlinks: optional_args[:do_not_follow_symlinks]
+      )
 
     %Dagger.Stat{
       query_builder: query_builder,
@@ -397,8 +381,7 @@ defmodule Dagger.Directory do
        %Dagger.Directory{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("Directory"),
          client: directory.client
        }}
@@ -417,17 +400,13 @@ defmodule Dagger.Directory do
   def terminal(%__MODULE__{} = directory, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("terminal")
-      |> QB.maybe_put_arg(
-        "container",
-        if(optional_args[:container], do: Dagger.ID.id!(optional_args[:container]), else: nil)
+      |> QB.select("terminal",
+        container:
+          if(optional_args[:container], do: Dagger.ID.id!(optional_args[:container]), else: nil),
+        cmd: optional_args[:cmd],
+        experimentalPrivilegedNesting: optional_args[:experimental_privileged_nesting],
+        insecureRootCapabilities: optional_args[:insecure_root_capabilities]
       )
-      |> QB.maybe_put_arg("cmd", optional_args[:cmd])
-      |> QB.maybe_put_arg(
-        "experimentalPrivilegedNesting",
-        optional_args[:experimental_privileged_nesting]
-      )
-      |> QB.maybe_put_arg("insecureRootCapabilities", optional_args[:insecure_root_capabilities])
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -441,9 +420,7 @@ defmodule Dagger.Directory do
   @spec with_changes(t(), Dagger.Changeset.t()) :: Dagger.Directory.t()
   def with_changes(%__MODULE__{} = directory, changes) do
     query_builder =
-      directory.query_builder
-      |> QB.select("withChanges")
-      |> QB.put_arg("changes", Dagger.ID.id!(changes))
+      directory.query_builder |> QB.select("withChanges", changes: Dagger.ID.id!(changes))
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -464,14 +441,15 @@ defmodule Dagger.Directory do
   def with_directory(%__MODULE__{} = directory, path, source, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withDirectory")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("source", Dagger.ID.id!(source))
-      |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-      |> QB.maybe_put_arg("include", optional_args[:include])
-      |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
-      |> QB.maybe_put_arg("owner", optional_args[:owner])
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("withDirectory",
+        path: path,
+        source: Dagger.ID.id!(source),
+        exclude: optional_args[:exclude],
+        include: optional_args[:include],
+        gitignore: optional_args[:gitignore],
+        owner: optional_args[:owner],
+        permissions: optional_args[:permissions]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -485,7 +463,7 @@ defmodule Dagger.Directory do
   @spec with_error(t(), String.t()) :: Dagger.Directory.t()
   def with_error(%__MODULE__{} = directory, err) do
     query_builder =
-      directory.query_builder |> QB.select("withError") |> QB.put_arg("err", err)
+      directory.query_builder |> QB.select("withError", err: err)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -503,11 +481,12 @@ defmodule Dagger.Directory do
   def with_file(%__MODULE__{} = directory, path, source, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withFile")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("source", Dagger.ID.id!(source))
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
-      |> QB.maybe_put_arg("owner", optional_args[:owner])
+      |> QB.select("withFile",
+        path: path,
+        source: Dagger.ID.id!(source),
+        permissions: optional_args[:permissions],
+        owner: optional_args[:owner]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -523,10 +502,11 @@ defmodule Dagger.Directory do
   def with_files(%__MODULE__{} = directory, path, sources, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withFiles")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("sources", sources)
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("withFiles",
+        path: path,
+        sources: sources,
+        permissions: optional_args[:permissions]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -542,9 +522,7 @@ defmodule Dagger.Directory do
   def with_new_directory(%__MODULE__{} = directory, path, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withNewDirectory")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("withNewDirectory", path: path, permissions: optional_args[:permissions])
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -560,10 +538,11 @@ defmodule Dagger.Directory do
   def with_new_file(%__MODULE__{} = directory, path, contents, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withNewFile")
-      |> QB.put_arg("path", path)
-      |> QB.put_arg("contents", contents)
-      |> QB.maybe_put_arg("permissions", optional_args[:permissions])
+      |> QB.select("withNewFile",
+        path: path,
+        contents: contents,
+        permissions: optional_args[:permissions]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -583,9 +562,7 @@ defmodule Dagger.Directory do
   def with_patch(%__MODULE__{} = directory, patch, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withPatch")
-      |> QB.put_arg("patch", patch)
-      |> QB.maybe_put_arg("onConflict", optional_args[:on_conflict])
+      |> QB.select("withPatch", patch: patch, onConflict: optional_args[:on_conflict])
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -605,9 +582,10 @@ defmodule Dagger.Directory do
   def with_patch_file(%__MODULE__{} = directory, patch, optional_args \\ []) do
     query_builder =
       directory.query_builder
-      |> QB.select("withPatchFile")
-      |> QB.put_arg("patch", Dagger.ID.id!(patch))
-      |> QB.maybe_put_arg("onConflict", optional_args[:on_conflict])
+      |> QB.select("withPatchFile",
+        patch: Dagger.ID.id!(patch),
+        onConflict: optional_args[:on_conflict]
+      )
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -621,10 +599,7 @@ defmodule Dagger.Directory do
   @spec with_symlink(t(), String.t(), String.t()) :: Dagger.Directory.t()
   def with_symlink(%__MODULE__{} = directory, target, link_name) do
     query_builder =
-      directory.query_builder
-      |> QB.select("withSymlink")
-      |> QB.put_arg("target", target)
-      |> QB.put_arg("linkName", link_name)
+      directory.query_builder |> QB.select("withSymlink", target: target, linkName: link_name)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -638,7 +613,7 @@ defmodule Dagger.Directory do
   @spec with_timestamps(t(), integer()) :: Dagger.Directory.t()
   def with_timestamps(%__MODULE__{} = directory, timestamp) do
     query_builder =
-      directory.query_builder |> QB.select("withTimestamps") |> QB.put_arg("timestamp", timestamp)
+      directory.query_builder |> QB.select("withTimestamps", timestamp: timestamp)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -652,7 +627,7 @@ defmodule Dagger.Directory do
   @spec without_directory(t(), String.t()) :: Dagger.Directory.t()
   def without_directory(%__MODULE__{} = directory, path) do
     query_builder =
-      directory.query_builder |> QB.select("withoutDirectory") |> QB.put_arg("path", path)
+      directory.query_builder |> QB.select("withoutDirectory", path: path)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -666,7 +641,7 @@ defmodule Dagger.Directory do
   @spec without_file(t(), String.t()) :: Dagger.Directory.t()
   def without_file(%__MODULE__{} = directory, path) do
     query_builder =
-      directory.query_builder |> QB.select("withoutFile") |> QB.put_arg("path", path)
+      directory.query_builder |> QB.select("withoutFile", path: path)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -680,7 +655,7 @@ defmodule Dagger.Directory do
   @spec without_files(t(), [String.t()]) :: Dagger.Directory.t()
   def without_files(%__MODULE__{} = directory, paths) do
     query_builder =
-      directory.query_builder |> QB.select("withoutFiles") |> QB.put_arg("paths", paths)
+      directory.query_builder |> QB.select("withoutFiles", paths: paths)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -705,8 +680,7 @@ defimpl Nestru.Decoder, for: Dagger.Directory do
      %Dagger.Directory{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Directory"),
        client: dag.client
      }}

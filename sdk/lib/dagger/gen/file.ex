@@ -21,9 +21,7 @@ defmodule Dagger.File do
   @spec as_env_file(t(), [{:expand, boolean() | nil}]) :: Dagger.EnvFile.t()
   def as_env_file(%__MODULE__{} = file, optional_args \\ []) do
     query_builder =
-      file.query_builder
-      |> QB.select("asEnvFile")
-      |> QB.maybe_put_arg("expand", optional_args[:expand])
+      file.query_builder |> QB.select("asEnvFile", expand: optional_args[:expand])
 
     %Dagger.EnvFile{
       query_builder: query_builder,
@@ -51,7 +49,7 @@ defmodule Dagger.File do
   @spec chown(t(), String.t()) :: Dagger.File.t()
   def chown(%__MODULE__{} = file, owner) do
     query_builder =
-      file.query_builder |> QB.select("chown") |> QB.put_arg("owner", owner)
+      file.query_builder |> QB.select("chown", owner: owner)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -67,9 +65,10 @@ defmodule Dagger.File do
   def contents(%__MODULE__{} = file, optional_args \\ []) do
     query_builder =
       file.query_builder
-      |> QB.select("contents")
-      |> QB.maybe_put_arg("offsetLines", optional_args[:offset_lines])
-      |> QB.maybe_put_arg("limitLines", optional_args[:limit_lines])
+      |> QB.select("contents",
+        offsetLines: optional_args[:offset_lines],
+        limitLines: optional_args[:limit_lines]
+      )
 
     Client.execute(file.client, query_builder)
   end
@@ -81,9 +80,7 @@ defmodule Dagger.File do
           {:ok, String.t()} | {:error, term()}
   def digest(%__MODULE__{} = file, optional_args \\ []) do
     query_builder =
-      file.query_builder
-      |> QB.select("digest")
-      |> QB.maybe_put_arg("excludeMetadata", optional_args[:exclude_metadata])
+      file.query_builder |> QB.select("digest", excludeMetadata: optional_args[:exclude_metadata])
 
     Client.execute(file.client, query_builder)
   end
@@ -96,9 +93,10 @@ defmodule Dagger.File do
   def export(%__MODULE__{} = file, path, optional_args \\ []) do
     query_builder =
       file.query_builder
-      |> QB.select("export")
-      |> QB.put_arg("path", path)
-      |> QB.maybe_put_arg("allowParentDirPath", optional_args[:allow_parent_dir_path])
+      |> QB.select("export",
+        path: path,
+        allowParentDirPath: optional_args[:allow_parent_dir_path]
+      )
 
     Client.execute(file.client, query_builder)
   end
@@ -145,19 +143,20 @@ defmodule Dagger.File do
   def search(%__MODULE__{} = file, pattern, optional_args \\ []) do
     query_builder =
       file.query_builder
-      |> QB.select("search")
-      |> QB.put_arg("pattern", pattern)
-      |> QB.maybe_put_arg("literal", optional_args[:literal])
-      |> QB.maybe_put_arg("multiline", optional_args[:multiline])
-      |> QB.maybe_put_arg("dotall", optional_args[:dotall])
-      |> QB.maybe_put_arg("insensitive", optional_args[:insensitive])
-      |> QB.maybe_put_arg("skipIgnored", optional_args[:skip_ignored])
-      |> QB.maybe_put_arg("skipHidden", optional_args[:skip_hidden])
-      |> QB.maybe_put_arg("filesOnly", optional_args[:files_only])
-      |> QB.maybe_put_arg("limit", optional_args[:limit])
-      |> QB.maybe_put_arg("paths", optional_args[:paths])
-      |> QB.maybe_put_arg("globs", optional_args[:globs])
-      |> QB.select("id")
+      |> QB.select("search",
+        pattern: pattern,
+        literal: optional_args[:literal],
+        multiline: optional_args[:multiline],
+        dotall: optional_args[:dotall],
+        insensitive: optional_args[:insensitive],
+        skipIgnored: optional_args[:skip_ignored],
+        skipHidden: optional_args[:skip_hidden],
+        filesOnly: optional_args[:files_only],
+        limit: optional_args[:limit],
+        paths: optional_args[:paths],
+        globs: optional_args[:globs]
+      )
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(file.client, query_builder) do
       {:ok,
@@ -165,8 +164,7 @@ defmodule Dagger.File do
          %Dagger.SearchResult{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("SearchResult"),
            client: file.client
          }
@@ -212,8 +210,7 @@ defmodule Dagger.File do
        %Dagger.File{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("File"),
          client: file.client
        }}
@@ -226,7 +223,7 @@ defmodule Dagger.File do
   @spec with_name(t(), String.t()) :: Dagger.File.t()
   def with_name(%__MODULE__{} = file, name) do
     query_builder =
-      file.query_builder |> QB.select("withName") |> QB.put_arg("name", name)
+      file.query_builder |> QB.select("withName", name: name)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -252,11 +249,12 @@ defmodule Dagger.File do
   def with_replaced(%__MODULE__{} = file, search, replacement, optional_args \\ []) do
     query_builder =
       file.query_builder
-      |> QB.select("withReplaced")
-      |> QB.put_arg("search", search)
-      |> QB.put_arg("replacement", replacement)
-      |> QB.maybe_put_arg("all", optional_args[:all])
-      |> QB.maybe_put_arg("firstFrom", optional_args[:first_from])
+      |> QB.select("withReplaced",
+        search: search,
+        replacement: replacement,
+        all: optional_args[:all],
+        firstFrom: optional_args[:first_from]
+      )
 
     %Dagger.File{
       query_builder: query_builder,
@@ -270,7 +268,7 @@ defmodule Dagger.File do
   @spec with_timestamps(t(), integer()) :: Dagger.File.t()
   def with_timestamps(%__MODULE__{} = file, timestamp) do
     query_builder =
-      file.query_builder |> QB.select("withTimestamps") |> QB.put_arg("timestamp", timestamp)
+      file.query_builder |> QB.select("withTimestamps", timestamp: timestamp)
 
     %Dagger.File{
       query_builder: query_builder,
@@ -295,8 +293,7 @@ defimpl Nestru.Decoder, for: Dagger.File do
      %Dagger.File{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("File"),
        client: dag.client
      }}

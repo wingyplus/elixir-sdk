@@ -65,8 +65,7 @@ defimpl Nestru.Decoder, for: Dagger.Label do
      %Dagger.Label{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Label"),
        client: dag.client
      }}

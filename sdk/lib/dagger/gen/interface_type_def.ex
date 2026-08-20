@@ -32,7 +32,7 @@ defmodule Dagger.InterfaceTypeDef do
   @spec functions(t()) :: {:ok, [Dagger.Function.t()]} | {:error, term()}
   def functions(%__MODULE__{} = interface_type_def) do
     query_builder =
-      interface_type_def.query_builder |> QB.select("functions") |> QB.select("id")
+      interface_type_def.query_builder |> QB.select("functions") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(interface_type_def.client, query_builder) do
       {:ok,
@@ -40,8 +40,7 @@ defmodule Dagger.InterfaceTypeDef do
          %Dagger.Function{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Function"),
            client: interface_type_def.client
          }
@@ -113,8 +112,7 @@ defimpl Nestru.Decoder, for: Dagger.InterfaceTypeDef do
      %Dagger.InterfaceTypeDef{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("InterfaceTypeDef"),
        client: dag.client
      }}

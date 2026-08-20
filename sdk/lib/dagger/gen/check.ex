@@ -162,8 +162,7 @@ defimpl Nestru.Decoder, for: Dagger.Check do
      %Dagger.Check{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Check"),
        client: dag.client
      }}

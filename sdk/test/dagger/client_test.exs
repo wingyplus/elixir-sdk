@@ -209,8 +209,7 @@ defmodule Dagger.ClientTest do
     file = %Dagger.File{
       query_builder:
         QB.query()
-        |> QB.select("node")
-        |> QB.put_arg("id", id)
+        |> QB.select("node", id: id)
         |> QB.inline_fragment("File"),
       client: dag.client
     }
@@ -227,8 +226,7 @@ defmodule Dagger.ClientTest do
     secret = %Dagger.Secret{
       query_builder:
         QB.query()
-        |> QB.select("node")
-        |> QB.put_arg("id", id)
+        |> QB.select("node", id: id)
         |> QB.inline_fragment("Secret"),
       client: dag.client
     }

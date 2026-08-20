@@ -32,7 +32,7 @@ defmodule Dagger.EngineCacheEntrySet do
   @spec entries(t()) :: {:ok, [Dagger.EngineCacheEntry.t()]} | {:error, term()}
   def entries(%__MODULE__{} = engine_cache_entry_set) do
     query_builder =
-      engine_cache_entry_set.query_builder |> QB.select("entries") |> QB.select("id")
+      engine_cache_entry_set.query_builder |> QB.select("entries") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(engine_cache_entry_set.client, query_builder) do
       {:ok,
@@ -40,8 +40,7 @@ defmodule Dagger.EngineCacheEntrySet do
          %Dagger.EngineCacheEntry{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("EngineCacheEntry"),
            client: engine_cache_entry_set.client
          }
@@ -88,8 +87,7 @@ defimpl Nestru.Decoder, for: Dagger.EngineCacheEntrySet do
      %Dagger.EngineCacheEntrySet{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("EngineCacheEntrySet"),
        client: dag.client
      }}

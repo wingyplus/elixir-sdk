@@ -40,8 +40,7 @@ defimpl Nestru.Decoder, for: Dagger.Node do
      %Dagger.Node{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Node"),
        client: dag.client
      }}

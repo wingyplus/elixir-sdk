@@ -43,7 +43,7 @@ defmodule Dagger.Error do
   @spec values(t()) :: {:ok, [Dagger.ErrorValue.t()]} | {:error, term()}
   def values(%__MODULE__{} = error) do
     query_builder =
-      error.query_builder |> QB.select("values") |> QB.select("id")
+      error.query_builder |> QB.select("values") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(error.client, query_builder) do
       {:ok,
@@ -51,8 +51,7 @@ defmodule Dagger.Error do
          %Dagger.ErrorValue{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("ErrorValue"),
            client: error.client
          }
@@ -66,10 +65,7 @@ defmodule Dagger.Error do
   @spec with_value(t(), String.t(), Dagger.JSON.t()) :: Dagger.Error.t()
   def with_value(%__MODULE__{} = error, name, value) do
     query_builder =
-      error.query_builder
-      |> QB.select("withValue")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", value)
+      error.query_builder |> QB.select("withValue", name: name, value: value)
 
     %Dagger.Error{
       query_builder: query_builder,
@@ -94,8 +90,7 @@ defimpl Nestru.Decoder, for: Dagger.Error do
      %Dagger.Error{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Error"),
        client: dag.client
      }}

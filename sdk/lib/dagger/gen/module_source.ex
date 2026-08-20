@@ -101,7 +101,7 @@ defmodule Dagger.ModuleSource do
   @spec config_clients(t()) :: {:ok, [Dagger.ModuleConfigClient.t()]} | {:error, term()}
   def config_clients(%__MODULE__{} = module_source) do
     query_builder =
-      module_source.query_builder |> QB.select("configClients") |> QB.select("id")
+      module_source.query_builder |> QB.select("configClients") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module_source.client, query_builder) do
       {:ok,
@@ -109,8 +109,7 @@ defmodule Dagger.ModuleSource do
          %Dagger.ModuleConfigClient{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("ModuleConfigClient"),
            client: module_source.client
          }
@@ -149,7 +148,7 @@ defmodule Dagger.ModuleSource do
   @spec dependencies(t()) :: {:ok, [Dagger.ModuleSource.t()]} | {:error, term()}
   def dependencies(%__MODULE__{} = module_source) do
     query_builder =
-      module_source.query_builder |> QB.select("dependencies") |> QB.select("id")
+      module_source.query_builder |> QB.select("dependencies") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module_source.client, query_builder) do
       {:ok,
@@ -157,8 +156,7 @@ defmodule Dagger.ModuleSource do
          %Dagger.ModuleSource{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("ModuleSource"),
            client: module_source.client
          }
@@ -183,7 +181,7 @@ defmodule Dagger.ModuleSource do
   @spec directory(t(), String.t()) :: Dagger.Directory.t()
   def directory(%__MODULE__{} = module_source, path) do
     query_builder =
-      module_source.query_builder |> QB.select("directory") |> QB.put_arg("path", path)
+      module_source.query_builder |> QB.select("directory", path: path)
 
     %Dagger.Directory{
       query_builder: query_builder,
@@ -211,8 +209,7 @@ defmodule Dagger.ModuleSource do
   def generate_local_dependencies(%__MODULE__{} = module_source, workspace) do
     query_builder =
       module_source.query_builder
-      |> QB.select("generateLocalDependencies")
-      |> QB.put_arg("workspace", Dagger.ID.id!(workspace))
+      |> QB.select("generateLocalDependencies", workspace: Dagger.ID.id!(workspace))
 
     %Dagger.Changeset{
       query_builder: query_builder,
@@ -428,8 +425,7 @@ defmodule Dagger.ModuleSource do
        %Dagger.ModuleSource{
          query_builder:
            QB.query()
-           |> QB.select("node")
-           |> QB.put_arg("id", id)
+           |> QB.select("node", id: id)
            |> QB.inline_fragment("ModuleSource"),
          client: module_source.client
        }}
@@ -445,7 +441,7 @@ defmodule Dagger.ModuleSource do
   @spec toolchains(t()) :: {:ok, [Dagger.ModuleSource.t()]} | {:error, term()}
   def toolchains(%__MODULE__{} = module_source) do
     query_builder =
-      module_source.query_builder |> QB.select("toolchains") |> QB.select("id")
+      module_source.query_builder |> QB.select("toolchains") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(module_source.client, query_builder) do
       {:ok,
@@ -453,8 +449,7 @@ defmodule Dagger.ModuleSource do
          %Dagger.ModuleSource{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("ModuleSource"),
            client: module_source.client
          }
@@ -513,8 +508,7 @@ defmodule Dagger.ModuleSource do
   def with_blueprint(%__MODULE__{} = module_source, blueprint) do
     query_builder =
       module_source.query_builder
-      |> QB.select("withBlueprint")
-      |> QB.put_arg("blueprint", Dagger.ID.id!(blueprint))
+      |> QB.select("withBlueprint", blueprint: Dagger.ID.id!(blueprint))
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -529,9 +523,7 @@ defmodule Dagger.ModuleSource do
   def with_client(%__MODULE__{} = module_source, generator, output_dir) do
     query_builder =
       module_source.query_builder
-      |> QB.select("withClient")
-      |> QB.put_arg("generator", generator)
-      |> QB.put_arg("outputDir", output_dir)
+      |> QB.select("withClient", generator: generator, outputDir: output_dir)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -545,9 +537,7 @@ defmodule Dagger.ModuleSource do
   @spec with_dependencies(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def with_dependencies(%__MODULE__{} = module_source, dependencies) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withDependencies")
-      |> QB.put_arg("dependencies", dependencies)
+      module_source.query_builder |> QB.select("withDependencies", dependencies: dependencies)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -561,9 +551,7 @@ defmodule Dagger.ModuleSource do
   @spec with_engine_version(t(), String.t()) :: Dagger.ModuleSource.t()
   def with_engine_version(%__MODULE__{} = module_source, version) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withEngineVersion")
-      |> QB.put_arg("version", version)
+      module_source.query_builder |> QB.select("withEngineVersion", version: version)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -578,9 +566,7 @@ defmodule Dagger.ModuleSource do
           Dagger.ModuleSource.t()
   def with_experimental_features(%__MODULE__{} = module_source, features) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withExperimentalFeatures")
-      |> QB.put_arg("features", features)
+      module_source.query_builder |> QB.select("withExperimentalFeatures", features: features)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -594,7 +580,7 @@ defmodule Dagger.ModuleSource do
   @spec with_includes(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def with_includes(%__MODULE__{} = module_source, patterns) do
     query_builder =
-      module_source.query_builder |> QB.select("withIncludes") |> QB.put_arg("patterns", patterns)
+      module_source.query_builder |> QB.select("withIncludes", patterns: patterns)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -608,7 +594,7 @@ defmodule Dagger.ModuleSource do
   @spec with_name(t(), String.t()) :: Dagger.ModuleSource.t()
   def with_name(%__MODULE__{} = module_source, name) do
     query_builder =
-      module_source.query_builder |> QB.select("withName") |> QB.put_arg("name", name)
+      module_source.query_builder |> QB.select("withName", name: name)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -622,7 +608,7 @@ defmodule Dagger.ModuleSource do
   @spec with_sdk(t(), String.t()) :: Dagger.ModuleSource.t()
   def with_sdk(%__MODULE__{} = module_source, source) do
     query_builder =
-      module_source.query_builder |> QB.select("withSDK") |> QB.put_arg("source", source)
+      module_source.query_builder |> QB.select("withSDK", source: source)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -636,7 +622,7 @@ defmodule Dagger.ModuleSource do
   @spec with_source_subpath(t(), String.t()) :: Dagger.ModuleSource.t()
   def with_source_subpath(%__MODULE__{} = module_source, path) do
     query_builder =
-      module_source.query_builder |> QB.select("withSourceSubpath") |> QB.put_arg("path", path)
+      module_source.query_builder |> QB.select("withSourceSubpath", path: path)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -653,9 +639,7 @@ defmodule Dagger.ModuleSource do
   @spec with_toolchains(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def with_toolchains(%__MODULE__{} = module_source, toolchains) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withToolchains")
-      |> QB.put_arg("toolchains", toolchains)
+      module_source.query_builder |> QB.select("withToolchains", toolchains: toolchains)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -687,8 +671,7 @@ defmodule Dagger.ModuleSource do
   def with_update_dependencies(%__MODULE__{} = module_source, dependencies) do
     query_builder =
       module_source.query_builder
-      |> QB.select("withUpdateDependencies")
-      |> QB.put_arg("dependencies", dependencies)
+      |> QB.select("withUpdateDependencies", dependencies: dependencies)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -705,9 +688,7 @@ defmodule Dagger.ModuleSource do
   @spec with_update_toolchains(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def with_update_toolchains(%__MODULE__{} = module_source, toolchains) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withUpdateToolchains")
-      |> QB.put_arg("toolchains", toolchains)
+      module_source.query_builder |> QB.select("withUpdateToolchains", toolchains: toolchains)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -721,9 +702,7 @@ defmodule Dagger.ModuleSource do
   @spec with_updated_clients(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def with_updated_clients(%__MODULE__{} = module_source, clients) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withUpdatedClients")
-      |> QB.put_arg("clients", clients)
+      module_source.query_builder |> QB.select("withUpdatedClients", clients: clients)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -754,7 +733,7 @@ defmodule Dagger.ModuleSource do
   @spec without_client(t(), String.t()) :: Dagger.ModuleSource.t()
   def without_client(%__MODULE__{} = module_source, path) do
     query_builder =
-      module_source.query_builder |> QB.select("withoutClient") |> QB.put_arg("path", path)
+      module_source.query_builder |> QB.select("withoutClient", path: path)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -768,9 +747,7 @@ defmodule Dagger.ModuleSource do
   @spec without_dependencies(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def without_dependencies(%__MODULE__{} = module_source, dependencies) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withoutDependencies")
-      |> QB.put_arg("dependencies", dependencies)
+      module_source.query_builder |> QB.select("withoutDependencies", dependencies: dependencies)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -785,9 +762,7 @@ defmodule Dagger.ModuleSource do
           Dagger.ModuleSource.t()
   def without_experimental_features(%__MODULE__{} = module_source, features) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withoutExperimentalFeatures")
-      |> QB.put_arg("features", features)
+      module_source.query_builder |> QB.select("withoutExperimentalFeatures", features: features)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -804,9 +779,7 @@ defmodule Dagger.ModuleSource do
   @spec without_toolchains(t(), [String.t()]) :: Dagger.ModuleSource.t()
   def without_toolchains(%__MODULE__{} = module_source, toolchains) do
     query_builder =
-      module_source.query_builder
-      |> QB.select("withoutToolchains")
-      |> QB.put_arg("toolchains", toolchains)
+      module_source.query_builder |> QB.select("withoutToolchains", toolchains: toolchains)
 
     %Dagger.ModuleSource{
       query_builder: query_builder,
@@ -831,8 +804,7 @@ defimpl Nestru.Decoder, for: Dagger.ModuleSource do
      %Dagger.ModuleSource{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("ModuleSource"),
        client: dag.client
      }}

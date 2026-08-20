@@ -18,7 +18,7 @@ defmodule Dagger.Test do
   @spec fn_(t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   def fn_(%__MODULE__{} = test, s) do
     query_builder =
-      test.query_builder |> QB.select("fn") |> QB.put_arg("s", s)
+      test.query_builder |> QB.select("fn", s: s)
 
     Client.execute(test.client, query_builder)
   end
@@ -51,8 +51,7 @@ defimpl Nestru.Decoder, for: Dagger.Test do
      %Dagger.Test{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("Test"),
        client: dag.client
      }}

@@ -69,7 +69,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec env_variables(t()) :: {:ok, [Dagger.EnvVariable.t()]} | {:error, term()}
         def env_variables(%__MODULE__{} = container) do
           query_builder =
-            container.query_builder |> QB.select("envVariables") |> QB.select("id")
+            container.query_builder |> QB.select("envVariables") |> QB.select_fields(["id"])
 
           with {:ok, items} <- Client.execute(container.client, query_builder) do
             {:ok,
@@ -77,8 +77,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
                %Dagger.EnvVariable{
                  query_builder:
                    QB.query()
-                   |> QB.select("node")
-                   |> QB.put_arg("id", id)
+                   |> QB.select("node", id: id)
                    |> QB.inline_fragment("EnvVariable"),
                  client: container.client
                }
@@ -147,9 +146,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec generated_code(t(), Dagger.Directory.t()) :: Dagger.GeneratedCode.t()
         def generated_code(%__MODULE__{} = client, %Dagger.Directory{} = code) do
           query_builder =
-            client.query_builder
-            |> QB.select("generatedCode")
-            |> QB.put_arg("code", Dagger.ID.id!(code))
+            client.query_builder |> QB.select("generatedCode", code: Dagger.ID.id!(code))
 
           %Dagger.GeneratedCode{
             query_builder: query_builder,
@@ -195,8 +192,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
              %Dagger.Container{
                query_builder:
                  QB.query()
-                 |> QB.select("node")
-                 |> QB.put_arg("id", id)
+                 |> QB.select("node", id: id)
                  |> QB.inline_fragment("Container"),
                client: container.client
              }}
@@ -231,7 +227,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec return_value(t(), Dagger.JSON.t()) :: :ok | {:error, term()}
         def return_value(%__MODULE__{} = function_call, value) when is_binary(value) do
           query_builder =
-            function_call.query_builder |> QB.select("returnValue") |> QB.put_arg("value", value)
+            function_call.query_builder |> QB.select("returnValue", value: value)
 
           case Client.execute(function_call.client, query_builder) do
             {:ok, _} -> :ok
@@ -348,13 +344,14 @@ defmodule Dagger.Codegen.RenderObjectTest do
             when is_binary(path) do
           query_builder =
             directory.query_builder
-            |> QB.select("withDirectory")
-            |> QB.put_arg("path", path)
-            |> QB.put_arg("source", Dagger.ID.id!(source))
-            |> QB.maybe_put_arg("exclude", optional_args[:exclude])
-            |> QB.maybe_put_arg("include", optional_args[:include])
-            |> QB.maybe_put_arg("gitignore", optional_args[:gitignore])
-            |> QB.maybe_put_arg("owner", optional_args[:owner])
+            |> QB.select("withDirectory",
+              path: path,
+              source: Dagger.ID.id!(source),
+              exclude: optional_args[:exclude],
+              include: optional_args[:include],
+              gitignore: optional_args[:gitignore],
+              owner: optional_args[:owner]
+            )
 
           %Dagger.Directory{
             query_builder: query_builder,
@@ -392,7 +389,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec dependencies(t()) :: {:ok, [Dagger.Module.t()]} | {:error, term()}
         def dependencies(%__MODULE__{} = module) do
           query_builder =
-            module.query_builder |> QB.select("dependencies") |> QB.select("id")
+            module.query_builder |> QB.select("dependencies") |> QB.select_fields(["id"])
 
           with {:ok, items} <- Client.execute(module.client, query_builder) do
             {:ok,
@@ -400,8 +397,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
                %Dagger.Module{
                  query_builder:
                    QB.query()
-                   |> QB.select("node")
-                   |> QB.put_arg("id", id)
+                   |> QB.select("node", id: id)
                    |> QB.inline_fragment("Module"),
                  client: module.client
                }
@@ -426,7 +422,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec enums(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
         def enums(%__MODULE__{} = module) do
           query_builder =
-            module.query_builder |> QB.select("enums") |> QB.select("id")
+            module.query_builder |> QB.select("enums") |> QB.select_fields(["id"])
 
           with {:ok, items} <- Client.execute(module.client, query_builder) do
             {:ok,
@@ -434,8 +430,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
                %Dagger.TypeDef{
                  query_builder:
                    QB.query()
-                   |> QB.select("node")
-                   |> QB.put_arg("id", id)
+                   |> QB.select("node", id: id)
                    |> QB.inline_fragment("TypeDef"),
                  client: module.client
                }
@@ -474,7 +469,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec interfaces(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
         def interfaces(%__MODULE__{} = module) do
           query_builder =
-            module.query_builder |> QB.select("interfaces") |> QB.select("id")
+            module.query_builder |> QB.select("interfaces") |> QB.select_fields(["id"])
 
           with {:ok, items} <- Client.execute(module.client, query_builder) do
             {:ok,
@@ -482,8 +477,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
                %Dagger.TypeDef{
                  query_builder:
                    QB.query()
-                   |> QB.select("node")
-                   |> QB.put_arg("id", id)
+                   |> QB.select("node", id: id)
                    |> QB.inline_fragment("TypeDef"),
                  client: module.client
                }
@@ -508,7 +502,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec objects(t()) :: {:ok, [Dagger.TypeDef.t()]} | {:error, term()}
         def objects(%__MODULE__{} = module) do
           query_builder =
-            module.query_builder |> QB.select("objects") |> QB.select("id")
+            module.query_builder |> QB.select("objects") |> QB.select_fields(["id"])
 
           with {:ok, items} <- Client.execute(module.client, query_builder) do
             {:ok,
@@ -516,8 +510,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
                %Dagger.TypeDef{
                  query_builder:
                    QB.query()
-                   |> QB.select("node")
-                   |> QB.put_arg("id", id)
+                   |> QB.select("node", id: id)
                    |> QB.inline_fragment("TypeDef"),
                  client: module.client
                }
@@ -563,9 +556,10 @@ defmodule Dagger.Codegen.RenderObjectTest do
         def serve(%__MODULE__{} = module, optional_args \\\\ []) do
           query_builder =
             module.query_builder
-            |> QB.select("serve")
-            |> QB.maybe_put_arg("includeDependencies", optional_args[:include_dependencies])
-            |> QB.maybe_put_arg("entrypoint", optional_args[:entrypoint])
+            |> QB.select("serve",
+              includeDependencies: optional_args[:include_dependencies],
+              entrypoint: optional_args[:entrypoint]
+            )
 
           case Client.execute(module.client, query_builder) do
             {:ok, _} -> :ok
@@ -600,8 +594,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
              %Dagger.Module{
                query_builder:
                  QB.query()
-                 |> QB.select("node")
-                 |> QB.put_arg("id", id)
+                 |> QB.select("node", id: id)
                  |> QB.inline_fragment("Module"),
                client: module.client
              }}
@@ -614,9 +607,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec with_description(t(), String.t()) :: Dagger.Module.t()
         def with_description(%__MODULE__{} = module, description) when is_binary(description) do
           query_builder =
-            module.query_builder
-            |> QB.select("withDescription")
-            |> QB.put_arg("description", description)
+            module.query_builder |> QB.select("withDescription", description: description)
 
           %Dagger.Module{
             query_builder: query_builder,
@@ -630,7 +621,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec with_enum(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
         def with_enum(%__MODULE__{} = module, %Dagger.TypeDef{} = enum) do
           query_builder =
-            module.query_builder |> QB.select("withEnum") |> QB.put_arg("enum", Dagger.ID.id!(enum))
+            module.query_builder |> QB.select("withEnum", enum: Dagger.ID.id!(enum))
 
           %Dagger.Module{
             query_builder: query_builder,
@@ -644,9 +635,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec with_interface(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
         def with_interface(%__MODULE__{} = module, %Dagger.TypeDef{} = iface) do
           query_builder =
-            module.query_builder
-            |> QB.select("withInterface")
-            |> QB.put_arg("iface", Dagger.ID.id!(iface))
+            module.query_builder |> QB.select("withInterface", iface: Dagger.ID.id!(iface))
 
           %Dagger.Module{
             query_builder: query_builder,
@@ -660,9 +649,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
         @spec with_object(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
         def with_object(%__MODULE__{} = module, %Dagger.TypeDef{} = object) do
           query_builder =
-            module.query_builder
-            |> QB.select("withObject")
-            |> QB.put_arg("object", Dagger.ID.id!(object))
+            module.query_builder |> QB.select("withObject", object: Dagger.ID.id!(object))
 
           %Dagger.Module{
             query_builder: query_builder,
@@ -687,8 +674,7 @@ defmodule Dagger.Codegen.RenderObjectTest do
            %Dagger.Module{
              query_builder:
                dag.query_builder
-               |> QB.select("node")
-               |> QB.put_arg("id", id)
+               |> QB.select("node", id: id)
                |> QB.inline_fragment("Module"),
              client: dag.client
            }}
@@ -778,9 +764,10 @@ defmodule Dagger.Codegen.RenderObjectTest do
         def env(%__MODULE__{} = client, optional_args \\\\ []) do
           query_builder =
             client.query_builder
-            |> QB.select("env")
-            |> QB.maybe_put_arg("privileged", optional_args[:privileged])
-            |> QB.maybe_put_arg("writable", optional_args[:writable])
+            |> QB.select("env",
+              privileged: optional_args[:privileged],
+              writable: optional_args[:writable]
+            )
 
           %Dagger.Env{
             query_builder: query_builder,

@@ -22,10 +22,8 @@ defmodule Dagger.AgentGroup do
   def compose(%__MODULE__{} = agent_group, optional_args \\ []) do
     query_builder =
       agent_group.query_builder
-      |> QB.select("compose")
-      |> QB.maybe_put_arg(
-        "base",
-        if(optional_args[:base], do: Dagger.ID.id!(optional_args[:base]), else: nil)
+      |> QB.select("compose",
+        base: if(optional_args[:base], do: Dagger.ID.id!(optional_args[:base]), else: nil)
       )
 
     %Dagger.LLM{
@@ -51,7 +49,7 @@ defmodule Dagger.AgentGroup do
   @spec list(t()) :: {:ok, [Dagger.Agent.t()]} | {:error, term()}
   def list(%__MODULE__{} = agent_group) do
     query_builder =
-      agent_group.query_builder |> QB.select("list") |> QB.select("id")
+      agent_group.query_builder |> QB.select("list") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(agent_group.client, query_builder) do
       {:ok,
@@ -59,8 +57,7 @@ defmodule Dagger.AgentGroup do
          %Dagger.Agent{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("Agent"),
            client: agent_group.client
          }
@@ -85,8 +82,7 @@ defimpl Nestru.Decoder, for: Dagger.AgentGroup do
      %Dagger.AgentGroup{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("AgentGroup"),
        client: dag.client
      }}

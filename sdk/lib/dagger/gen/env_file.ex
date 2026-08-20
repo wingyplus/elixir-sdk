@@ -35,7 +35,7 @@ defmodule Dagger.EnvFile do
   @spec exists(t(), String.t()) :: {:ok, boolean()} | {:error, term()}
   def exists(%__MODULE__{} = env_file, name) do
     query_builder =
-      env_file.query_builder |> QB.select("exists") |> QB.put_arg("name", name)
+      env_file.query_builder |> QB.select("exists", name: name)
 
     Client.execute(env_file.client, query_builder)
   end
@@ -46,10 +46,7 @@ defmodule Dagger.EnvFile do
   @spec get(t(), String.t(), [{:raw, boolean() | nil}]) :: {:ok, String.t()} | {:error, term()}
   def get(%__MODULE__{} = env_file, name, optional_args \\ []) do
     query_builder =
-      env_file.query_builder
-      |> QB.select("get")
-      |> QB.put_arg("name", name)
-      |> QB.maybe_put_arg("raw", optional_args[:raw])
+      env_file.query_builder |> QB.select("get", name: name, raw: optional_args[:raw])
 
     Client.execute(env_file.client, query_builder)
   end
@@ -71,7 +68,7 @@ defmodule Dagger.EnvFile do
   @spec namespace(t(), String.t()) :: Dagger.EnvFile.t()
   def namespace(%__MODULE__{} = env_file, prefix) do
     query_builder =
-      env_file.query_builder |> QB.select("namespace") |> QB.put_arg("prefix", prefix)
+      env_file.query_builder |> QB.select("namespace", prefix: prefix)
 
     %Dagger.EnvFile{
       query_builder: query_builder,
@@ -87,9 +84,8 @@ defmodule Dagger.EnvFile do
   def variables(%__MODULE__{} = env_file, optional_args \\ []) do
     query_builder =
       env_file.query_builder
-      |> QB.select("variables")
-      |> QB.maybe_put_arg("raw", optional_args[:raw])
-      |> QB.select("id")
+      |> QB.select("variables", raw: optional_args[:raw])
+      |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(env_file.client, query_builder) do
       {:ok,
@@ -97,8 +93,7 @@ defmodule Dagger.EnvFile do
          %Dagger.EnvVariable{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("EnvVariable"),
            client: env_file.client
          }
@@ -112,10 +107,7 @@ defmodule Dagger.EnvFile do
   @spec with_variable(t(), String.t(), String.t()) :: Dagger.EnvFile.t()
   def with_variable(%__MODULE__{} = env_file, name, value) do
     query_builder =
-      env_file.query_builder
-      |> QB.select("withVariable")
-      |> QB.put_arg("name", name)
-      |> QB.put_arg("value", value)
+      env_file.query_builder |> QB.select("withVariable", name: name, value: value)
 
     %Dagger.EnvFile{
       query_builder: query_builder,
@@ -129,7 +121,7 @@ defmodule Dagger.EnvFile do
   @spec without_variable(t(), String.t()) :: Dagger.EnvFile.t()
   def without_variable(%__MODULE__{} = env_file, name) do
     query_builder =
-      env_file.query_builder |> QB.select("withoutVariable") |> QB.put_arg("name", name)
+      env_file.query_builder |> QB.select("withoutVariable", name: name)
 
     %Dagger.EnvFile{
       query_builder: query_builder,
@@ -154,8 +146,7 @@ defimpl Nestru.Decoder, for: Dagger.EnvFile do
      %Dagger.EnvFile{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("EnvFile"),
        client: dag.client
      }}

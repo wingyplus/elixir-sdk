@@ -21,7 +21,7 @@ defmodule Dagger.WorkspaceSDK do
   @spec clients(t()) :: {:ok, [Dagger.WorkspaceModule.t()]} | {:error, term()}
   def clients(%__MODULE__{} = workspace_sdk) do
     query_builder =
-      workspace_sdk.query_builder |> QB.select("clients") |> QB.select("id")
+      workspace_sdk.query_builder |> QB.select("clients") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace_sdk.client, query_builder) do
       {:ok,
@@ -29,8 +29,7 @@ defmodule Dagger.WorkspaceSDK do
          %Dagger.WorkspaceModule{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("WorkspaceModule"),
            client: workspace_sdk.client
          }
@@ -55,7 +54,7 @@ defmodule Dagger.WorkspaceSDK do
   @spec modules(t()) :: {:ok, [Dagger.WorkspaceModule.t()]} | {:error, term()}
   def modules(%__MODULE__{} = workspace_sdk) do
     query_builder =
-      workspace_sdk.query_builder |> QB.select("modules") |> QB.select("id")
+      workspace_sdk.query_builder |> QB.select("modules") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(workspace_sdk.client, query_builder) do
       {:ok,
@@ -63,8 +62,7 @@ defmodule Dagger.WorkspaceSDK do
          %Dagger.WorkspaceModule{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("WorkspaceModule"),
            client: workspace_sdk.client
          }
@@ -111,8 +109,7 @@ defimpl Nestru.Decoder, for: Dagger.WorkspaceSDK do
      %Dagger.WorkspaceSDK{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("WorkspaceSDK"),
        client: dag.client
      }}

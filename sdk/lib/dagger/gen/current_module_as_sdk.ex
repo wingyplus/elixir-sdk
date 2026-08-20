@@ -21,7 +21,7 @@ defmodule Dagger.CurrentModuleAsSDK do
   @spec clients(t()) :: {:ok, [Dagger.CurrentModuleAsSDKClient.t()]} | {:error, term()}
   def clients(%__MODULE__{} = current_module_as_sdk) do
     query_builder =
-      current_module_as_sdk.query_builder |> QB.select("clients") |> QB.select("id")
+      current_module_as_sdk.query_builder |> QB.select("clients") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(current_module_as_sdk.client, query_builder) do
       {:ok,
@@ -29,8 +29,7 @@ defmodule Dagger.CurrentModuleAsSDK do
          %Dagger.CurrentModuleAsSDKClient{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("CurrentModuleAsSDKClient"),
            client: current_module_as_sdk.client
          }
@@ -55,7 +54,7 @@ defmodule Dagger.CurrentModuleAsSDK do
   @spec modules(t()) :: {:ok, [Dagger.CurrentModuleAsSDKModule.t()]} | {:error, term()}
   def modules(%__MODULE__{} = current_module_as_sdk) do
     query_builder =
-      current_module_as_sdk.query_builder |> QB.select("modules") |> QB.select("id")
+      current_module_as_sdk.query_builder |> QB.select("modules") |> QB.select_fields(["id"])
 
     with {:ok, items} <- Client.execute(current_module_as_sdk.client, query_builder) do
       {:ok,
@@ -63,8 +62,7 @@ defmodule Dagger.CurrentModuleAsSDK do
          %Dagger.CurrentModuleAsSDKModule{
            query_builder:
              QB.query()
-             |> QB.select("node")
-             |> QB.put_arg("id", id)
+             |> QB.select("node", id: id)
              |> QB.inline_fragment("CurrentModuleAsSDKModule"),
            client: current_module_as_sdk.client
          }
@@ -100,8 +98,7 @@ defimpl Nestru.Decoder, for: Dagger.CurrentModuleAsSDK do
      %Dagger.CurrentModuleAsSDK{
        query_builder:
          dag.query_builder
-         |> QB.select("node")
-         |> QB.put_arg("id", id)
+         |> QB.select("node", id: id)
          |> QB.inline_fragment("CurrentModuleAsSDK"),
        client: dag.client
      }}

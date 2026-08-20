@@ -1,123 +1,257 @@
 defmodule Dagger.Core.QueryBuilder do
   @moduledoc false
 
+  @typedoc """
+  A single field name, or the set of leaf fields a query ends with.
+  """
+  @type name :: String.t() | [String.t()]
+
+  @typedoc """
+  Arguments to a field, keyed by the schema's own names.
+  """
+  @type args :: [{atom() | String.t(), term()}]
+
   @type t :: %__MODULE__{
-          name: String.t() | nil,
-          args: map() | nil,
-          prev: t() | nil,
-          alias: String.t(),
-          inline_fragment: String.t() | nil
+          name: name() | nil,
+          args: args(),
+          prev: t() | nil
         }
 
-  defstruct [:name, :args, :prev, alias: "", inline_fragment: nil]
+  defstruct [:name, :prev, args: []]
 
   def query(), do: %__MODULE__{}
 
-  def select(%__MODULE__{} = selection, name) when is_binary(name) do
-    select_with_alias(selection, "", name)
-  end
+  @doc """
+  Select `name`, optionally with `args`.
 
-  def select_with_alias(%__MODULE__{} = selection, alias, name)
-      when is_binary(alias) and is_binary(name) do
+  An argument whose value is `nil` is left out of the query entirely, which is
+  what an unset optional argument means. To send a literal `null`, nest it: a
+  `nil` inside a list or an input object is encoded as one.
+  """
+  def select(%__MODULE__{} = selection, name, args \\ [])
+      when is_binary(name) and is_list(args) do
     %__MODULE__{
       name: name,
-      alias: alias,
-      prev: selection
+      args: reject_unset(args),
+      prev: selectable!(selection)
+    }
+  end
+
+  @doc """
+  Select a set of leaf fields, `envVariables { id name value }` say.
+
+  This is where a query ends: a node holding more than one field has no single
+  field for a further selection to hang from, so `select/3`, `select_fields/2`
+  and `inline_fragment/2` all refuse to extend one. The response for the
+  selection *above* it is what `Dagger.Core.Client.execute/2` returns - a map of
+  the fields, or a list of such maps - so a leaf set contributes nothing to
+  `path/1`.
+  """
+  def select_fields(%__MODULE__{} = selection, [_ | _] = names) do
+    %__MODULE__{
+      name: names,
+      prev: selectable!(selection)
     }
   end
 
   def inline_fragment(%__MODULE__{} = selection, type_name) when is_binary(type_name) do
     %__MODULE__{
       name: "... on #{type_name}",
-      prev: selection
+      prev: selectable!(selection)
     }
   end
 
-  def put_arg(%__MODULE__{args: args} = selection, name, value) when is_binary(name) do
-    args = args || %{}
+  defp selectable!(%__MODULE__{name: name} = selection) when not is_list(name), do: selection
 
-    %{selection | args: Map.put(args, name, value)}
+  defp selectable!(%__MODULE__{name: names}) do
+    raise ArgumentError,
+          "cannot select below the leaf fields #{inspect(names)}: a query ends there"
   end
 
-  def maybe_put_arg(%__MODULE__{} = selection, _name, nil), do: selection
-
-  def maybe_put_arg(%__MODULE__{} = selection, name, value) do
-    put_arg(selection, name, value)
-  end
+  defp reject_unset(args), do: Enum.reject(args, fn {_name, value} -> is_nil(value) end)
 
   def build(%__MODULE__{} = selection) do
-    fields = build_fields(selection, [])
-    Enum.join(fields, "{") <> String.duplicate("}", Enum.count(fields) - 1)
+    # The whole query is assembled as iodata and copied into a binary once, at
+    # the end: a selection that carries a large argument, a file's contents say,
+    # is otherwise copied again for every enclosing selection.
+    #
+    # The compiled escape pattern is looked up once here and carried down rather
+    # than fetched inside `escape/2`, which runs once per string: the lookup
+    # costs about a sixth of the scan it precedes, so a query encoding many
+    # small strings - a list argument of a couple of hundred flags, say - was
+    # paying for it far more often than it needed to.
+    {fields, depth} = build_fields(selection, [], 0, escape_pattern())
+
+    IO.iodata_to_binary([Enum.intersperse(fields, ?{), :binary.copy("}", depth)])
   end
 
-  def build_fields(%__MODULE__{prev: nil}, acc) do
-    ["query" | acc]
+  defp build_fields(%__MODULE__{prev: nil}, acc, depth, _pattern) do
+    {["query" | acc], depth}
   end
 
-  def build_fields(%__MODULE__{prev: selection, name: name, args: args, alias: alias}, acc) do
-    q = [build_alias(alias) | [name | build_args(args)]]
-    build_fields(selection, [IO.iodata_to_binary(q) | acc])
+  defp build_fields(%__MODULE__{prev: selection, name: name, args: args}, acc, depth, pattern) do
+    build_fields(
+      selection,
+      [[build_name(name) | build_args(args, pattern)] | acc],
+      depth + 1,
+      pattern
+    )
   end
 
-  defp build_alias(""), do: []
-  defp build_alias(alias), do: [alias, ~c":"]
+  defp build_name(names) when is_list(names), do: Enum.intersperse(names, ?\s)
+  defp build_name(name), do: name
 
-  defp build_args(nil), do: []
+  defp build_args([], _pattern), do: []
 
-  defp build_args(args) do
-    fun = fn {name, value} -> [name, ~c":", encode_value(value)] end
-    [~c"(", Enum.map(args, fun) |> Enum.intersperse(","), ~c")"]
+  defp build_args(args, pattern) do
+    fun = fn {name, value} -> [arg_name(name), ?:, encode_value(value, pattern)] end
+    [?(, Enum.map_intersperse(args, ?,, fun), ?)]
   end
 
-  defp encode_value(value) when is_atom(value),
+  # Generated code names arguments with the schema's own camel case atoms; a
+  # binary is accepted too, and costs nothing to write out.
+  defp arg_name(name) when is_atom(name), do: Atom.to_string(name)
+  defp arg_name(name), do: name
+
+  # `null` is only reachable for a value nested inside a list or an input
+  # object: `select/3` drops an argument that is `nil` rather than sending one.
+  defp encode_value(nil, _pattern), do: "null"
+
+  defp encode_value(value, _pattern) when is_atom(value),
     do: to_string(value)
 
-  defp encode_value(value) when is_binary(value) do
-    string =
-      value
-      |> String.replace("\\", "\\\\")
-      |> String.replace("\r", "\\r")
-      |> String.replace("\n", "\\n")
-      |> String.replace("\t", "\\t")
-      |> String.replace("\"", "\\\"")
-
-    [~c"\"", string, ~c"\""]
+  defp encode_value(value, pattern) when is_binary(value) do
+    [?", escape(value, pattern), ?"]
   end
 
-  defp encode_value(value) when is_list(value) do
-    [~c"[", Enum.map_intersperse(value, ",", &encode_value/1), ~c"]"]
+  defp encode_value(value, pattern) when is_list(value) do
+    [?[, Enum.map_intersperse(value, ?,, &encode_value(&1, pattern)), ?]]
   end
 
-  defp encode_value(value) when is_struct(value) do
+  defp encode_value(value, pattern) when is_struct(value) do
     value
     |> Map.from_struct()
-    |> encode_value()
+    |> encode_value(pattern)
   end
 
-  defp encode_value(value) when is_map(value) do
-    fun = fn {name, value} ->
-      [to_string(name), ~c":", encode_value(value)]
+  defp encode_value(value, pattern) when is_map(value) do
+    # Input objects come in as structs whose keys are the snake case names the
+    # SDK exposes, so they have to be turned back into the schema's camel case
+    # ones. A field left as `nil` is an absent field, not a null one, and the
+    # fields are sorted because a map does not iterate in a stable order.
+    fun = fn {name, value} -> [camelize(name), ?:, encode_value(value, pattern)] end
+
+    fields =
+      value
+      |> Enum.reject(fn {_name, value} -> is_nil(value) end)
+      |> Enum.sort()
+      |> Enum.map_intersperse(?,, fun)
+
+    [?{, fields, ?}]
+  end
+
+  defp encode_value(value, _pattern), do: [to_string(value)]
+
+  defp camelize(name) do
+    case :binary.split(to_string(name), "_", [:global]) do
+      [name] -> name
+      [first | rest] -> [first | Enum.map(rest, &capitalize/1)]
     end
-
-    [~c"{", Enum.map_intersperse(value, ",", fun), ~c"}"]
   end
 
-  defp encode_value(value), do: [to_string(value)]
+  defp capitalize(<<first, rest::binary>>) when first in ?a..?z, do: [first - 32 | rest]
+  defp capitalize(part), do: part
 
+  # The bytes that cannot appear literally inside a GraphQL string: the seven
+  # with a short escape, and the remaining control characters, which are written
+  # as `\uXXXX`.
+  @short_escapes %{
+    ?" => ~S(\"),
+    ?\\ => ~S(\\),
+    ?\b => ~S(\b),
+    ?\f => ~S(\f),
+    ?\n => ~S(\n),
+    ?\r => ~S(\r),
+    ?\t => ~S(\t)
+  }
+
+  @escapable for(char <- 0x00..0x1F, do: <<char>>) ++ [~s("), "\\"]
+
+  # Nothing needs escaping most of the time, and an argument can be large - the
+  # contents of a file, say - so the string is first scanned for anything that
+  # does, which `:binary.match/2` does in one pass over the whole binary instead
+  # of a byte at a time. Only a string that does need it walks the clauses
+  # below, and even then the runs between escapes are copied whole, appended to
+  # a binary the VM grows in place rather than to a list the query is later
+  # flattened from. `pattern` comes from `build/1`, which fetches it once.
+  defp escape(string, pattern) do
+    case :binary.match(string, pattern) do
+      :nomatch -> string
+      _ -> escape(string, string, 0, 0, <<>>)
+    end
+  end
+
+  # A compiled pattern is a reference, so it cannot be a module attribute; it is
+  # built on first use and kept for the lifetime of the VM instead.
+  defp escape_pattern() do
+    case :persistent_term.get(__MODULE__, nil) do
+      nil ->
+        pattern = :binary.compile_pattern(@escapable)
+        :persistent_term.put(__MODULE__, pattern)
+        pattern
+
+      pattern ->
+        pattern
+    end
+  end
+
+  defp escape(<<>>, original, from, len, acc) do
+    <<acc::binary, binary_part(original, from, len)::binary>>
+  end
+
+  for {char, escaped} <- @short_escapes do
+    defp escape(<<unquote(char), rest::binary>>, original, from, len, acc) do
+      escape(rest, original, from + len + 1, 0, <<
+        acc::binary,
+        binary_part(original, from, len)::binary,
+        unquote(escaped)
+      >>)
+    end
+  end
+
+  defp escape(<<char, rest::binary>>, original, from, len, acc) when char < 0x20 do
+    escape(rest, original, from + len + 1, 0, <<
+      acc::binary,
+      binary_part(original, from, len)::binary,
+      unicode_escape(char)::binary
+    >>)
+  end
+
+  defp escape(<<_char, rest::binary>>, original, from, len, acc) do
+    escape(rest, original, from, len + 1, acc)
+  end
+
+  for char <- 0x00..0x1F do
+    defp unicode_escape(unquote(char)), do: unquote("\\u00" <> Base.encode16(<<char>>))
+  end
+
+  @doc """
+  The names to follow through the response to reach what the query selected.
+
+  Inline fragments are skipped - they do not appear in the response - and so is
+  a trailing leaf field set, whose fields are the caller's to read.
+  """
   def path(selection) do
     path(selection, [])
   end
 
-  def path(%__MODULE__{prev: nil, name: nil}, acc), do: acc
+  defp path(%__MODULE__{prev: nil, name: nil}, acc), do: acc
 
-  def path(%__MODULE__{prev: selection, name: "... on " <> _}, acc),
+  defp path(%__MODULE__{prev: selection, name: "... on " <> _}, acc),
     do: path(selection, acc)
 
-  def path(%__MODULE__{prev: selection, name: name}, acc), do: path(selection, [name | acc])
-end
+  defp path(%__MODULE__{prev: selection, name: names}, acc) when is_list(names),
+    do: path(selection, acc)
 
-defmodule Dagger.QueryError do
-  @moduledoc false
-
-  defstruct [:errors]
+  defp path(%__MODULE__{prev: selection, name: name}, acc), do: path(selection, [name | acc])
 end
