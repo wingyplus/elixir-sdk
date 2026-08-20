@@ -95,7 +95,7 @@ type ElixirSdkRuntime {
 
   """
   The Elixir SDK source shipped alongside this runtime, pulled into the module
-  context by the `../sdk` include patterns in dagger.json.
+  context by the `../sdk` include patterns in dagger-module.toml.
   """
   let sdkSourceDir: Directory! { currentModule.source.directory("../sdk") }
 

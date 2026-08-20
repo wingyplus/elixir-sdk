@@ -22,7 +22,7 @@ and `mix.exs` depends on it by path, so `mix deps.get` only fetches third-party 
 When `dagger_sdk/mix.exs` is missing or empty — the module was scaffolded but `dagger
 generate` has not run (or its output was not committed) — `moduleRuntime` builds an
 equivalent `dagger_sdk/` on the fly: it vendors the SDK sources (pulled into this module's
-context by the `../sdk` include patterns in `dagger.json`) and generates the API bindings
+context by the `../sdk` include patterns in `dagger-module.toml`) and generates the API bindings
 from the engine-provided introspection schema. This keeps a freshly-initialized module
 loadable, which `dagger generate` itself relies on: the engine loads every workspace module
 to discover generators before the SDK's `@generate` hook can write `dagger_sdk/`.

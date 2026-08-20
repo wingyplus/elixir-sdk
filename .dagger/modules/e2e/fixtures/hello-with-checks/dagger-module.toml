@@ -1,0 +1,5 @@
+name = "hello-with-checks"
+engineVersion = "v1.0.0-0"
+
+[runtime]
+  source = "../../../../../runtime"

@@ -21,7 +21,7 @@ defmodule Defaults do
     echo_value()
   end
 
-  defn file_name(file: {Dagger.File.t(), default_path: "dagger.json"}) :: String.t() do
+  defn file_name(file: {Dagger.File.t(), default_path: "dagger-module.toml"}) :: String.t() do
     Dagger.File.name(file)
   end
 
