@@ -74,26 +74,37 @@ defmodule Dagger.Core.QueryBuilder do
     # The whole query is assembled as iodata and copied into a binary once, at
     # the end: a selection that carries a large argument, a file's contents say,
     # is otherwise copied again for every enclosing selection.
-    {fields, depth} = build_fields(selection, [], 0)
+    #
+    # The compiled escape pattern is looked up once here and carried down rather
+    # than fetched inside `escape/2`, which runs once per string: the lookup
+    # costs about a sixth of the scan it precedes, so a query encoding many
+    # small strings - a list argument of a couple of hundred flags, say - was
+    # paying for it far more often than it needed to.
+    {fields, depth} = build_fields(selection, [], 0, escape_pattern())
 
     IO.iodata_to_binary([Enum.intersperse(fields, ?{), :binary.copy("}", depth)])
   end
 
-  defp build_fields(%__MODULE__{prev: nil}, acc, depth) do
+  defp build_fields(%__MODULE__{prev: nil}, acc, depth, _pattern) do
     {["query" | acc], depth}
   end
 
-  defp build_fields(%__MODULE__{prev: selection, name: name, args: args}, acc, depth) do
-    build_fields(selection, [[build_name(name) | build_args(args)] | acc], depth + 1)
+  defp build_fields(%__MODULE__{prev: selection, name: name, args: args}, acc, depth, pattern) do
+    build_fields(
+      selection,
+      [[build_name(name) | build_args(args, pattern)] | acc],
+      depth + 1,
+      pattern
+    )
   end
 
   defp build_name(names) when is_list(names), do: Enum.intersperse(names, ?\s)
   defp build_name(name), do: name
 
-  defp build_args([]), do: []
+  defp build_args([], _pattern), do: []
 
-  defp build_args(args) do
-    fun = fn {name, value} -> [arg_name(name), ?:, encode_value(value)] end
+  defp build_args(args, pattern) do
+    fun = fn {name, value} -> [arg_name(name), ?:, encode_value(value, pattern)] end
     [?(, Enum.map_intersperse(args, ?,, fun), ?)]
   end
 
@@ -104,31 +115,31 @@ defmodule Dagger.Core.QueryBuilder do
 
   # `null` is only reachable for a value nested inside a list or an input
   # object: `select/3` drops an argument that is `nil` rather than sending one.
-  defp encode_value(nil), do: "null"
+  defp encode_value(nil, _pattern), do: "null"
 
-  defp encode_value(value) when is_atom(value),
+  defp encode_value(value, _pattern) when is_atom(value),
     do: to_string(value)
 
-  defp encode_value(value) when is_binary(value) do
-    [?", escape(value), ?"]
+  defp encode_value(value, pattern) when is_binary(value) do
+    [?", escape(value, pattern), ?"]
   end
 
-  defp encode_value(value) when is_list(value) do
-    [?[, Enum.map_intersperse(value, ?,, &encode_value/1), ?]]
+  defp encode_value(value, pattern) when is_list(value) do
+    [?[, Enum.map_intersperse(value, ?,, &encode_value(&1, pattern)), ?]]
   end
 
-  defp encode_value(value) when is_struct(value) do
+  defp encode_value(value, pattern) when is_struct(value) do
     value
     |> Map.from_struct()
-    |> encode_value()
+    |> encode_value(pattern)
   end
 
-  defp encode_value(value) when is_map(value) do
+  defp encode_value(value, pattern) when is_map(value) do
     # Input objects come in as structs whose keys are the snake case names the
     # SDK exposes, so they have to be turned back into the schema's camel case
     # ones. A field left as `nil` is an absent field, not a null one, and the
     # fields are sorted because a map does not iterate in a stable order.
-    fun = fn {name, value} -> [camelize(name), ?:, encode_value(value)] end
+    fun = fn {name, value} -> [camelize(name), ?:, encode_value(value, pattern)] end
 
     fields =
       value
@@ -139,7 +150,7 @@ defmodule Dagger.Core.QueryBuilder do
     [?{, fields, ?}]
   end
 
-  defp encode_value(value), do: [to_string(value)]
+  defp encode_value(value, _pattern), do: [to_string(value)]
 
   defp camelize(name) do
     case :binary.split(to_string(name), "_", [:global]) do
@@ -172,9 +183,9 @@ defmodule Dagger.Core.QueryBuilder do
   # of a byte at a time. Only a string that does need it walks the clauses
   # below, and even then the runs between escapes are copied whole, appended to
   # a binary the VM grows in place rather than to a list the query is later
-  # flattened from.
-  defp escape(string) do
-    case :binary.match(string, escape_pattern()) do
+  # flattened from. `pattern` comes from `build/1`, which fetches it once.
+  defp escape(string, pattern) do
+    case :binary.match(string, pattern) do
       :nomatch -> string
       _ -> escape(string, string, 0, 0, <<>>)
     end
