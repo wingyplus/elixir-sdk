@@ -5,11 +5,10 @@ defmodule Dagger.Core.QueryBuilder do
           name: String.t() | nil,
           args: map() | nil,
           prev: t() | nil,
-          alias: String.t(),
-          inline_fragment: String.t() | nil
+          alias: String.t()
         }
 
-  defstruct [:name, :args, :prev, alias: "", inline_fragment: nil]
+  defstruct [:name, :args, :prev, alias: ""]
 
   def query(), do: %__MODULE__{}
 
@@ -46,17 +45,24 @@ defmodule Dagger.Core.QueryBuilder do
   end
 
   def build(%__MODULE__{} = selection) do
-    fields = build_fields(selection, [])
-    Enum.join(fields, "{") <> String.duplicate("}", Enum.count(fields) - 1)
+    # The whole query is assembled as iodata and copied into a binary once, at
+    # the end: a selection that carries a large argument, a file's contents say,
+    # is otherwise copied again for every enclosing selection.
+    {fields, depth} = build_fields(selection, [], 0)
+
+    IO.iodata_to_binary([Enum.intersperse(fields, ?{), :binary.copy("}", depth)])
   end
 
-  def build_fields(%__MODULE__{prev: nil}, acc) do
-    ["query" | acc]
+  defp build_fields(%__MODULE__{prev: nil}, acc, depth) do
+    {["query" | acc], depth}
   end
 
-  def build_fields(%__MODULE__{prev: selection, name: name, args: args, alias: alias}, acc) do
-    q = [build_alias(alias) | [name | build_args(args)]]
-    build_fields(selection, [IO.iodata_to_binary(q) | acc])
+  defp build_fields(
+         %__MODULE__{prev: selection, name: name, args: args, alias: alias},
+         acc,
+         depth
+       ) do
+    build_fields(selection, [[build_alias(alias), name | build_args(args)] | acc], depth + 1)
   end
 
   defp build_alias(""), do: []
@@ -66,22 +72,18 @@ defmodule Dagger.Core.QueryBuilder do
 
   defp build_args(args) do
     fun = fn {name, value} -> [name, ~c":", encode_value(value)] end
-    [~c"(", Enum.map(args, fun) |> Enum.intersperse(","), ~c")"]
+    [~c"(", Enum.map_intersperse(args, ",", fun), ~c")"]
   end
+
+  # `null` only shows up when an argument is explicitly set to it:
+  # `maybe_put_arg/3` drops the argument instead.
+  defp encode_value(nil), do: ~c"null"
 
   defp encode_value(value) when is_atom(value),
     do: to_string(value)
 
   defp encode_value(value) when is_binary(value) do
-    string =
-      value
-      |> String.replace("\\", "\\\\")
-      |> String.replace("\r", "\\r")
-      |> String.replace("\n", "\\n")
-      |> String.replace("\t", "\\t")
-      |> String.replace("\"", "\\\"")
-
-    [~c"\"", string, ~c"\""]
+    [~c"\"", escape(value), ~c"\""]
   end
 
   defp encode_value(value) when is_list(value) do
@@ -95,14 +97,105 @@ defmodule Dagger.Core.QueryBuilder do
   end
 
   defp encode_value(value) when is_map(value) do
-    fun = fn {name, value} ->
-      [to_string(name), ~c":", encode_value(value)]
-    end
+    # Input objects come in as structs whose keys are the snake case names the
+    # SDK exposes, so they have to be turned back into the schema's camel case
+    # ones. A field left as `nil` is an absent field, not a null one, and the
+    # fields are sorted because a map does not iterate in a stable order.
+    fun = fn {name, value} -> [camelize(name), ~c":", encode_value(value)] end
 
-    [~c"{", Enum.map_intersperse(value, ",", fun), ~c"}"]
+    fields =
+      value
+      |> Enum.reject(fn {_name, value} -> is_nil(value) end)
+      |> Enum.sort()
+      |> Enum.map_intersperse(",", fun)
+
+    [~c"{", fields, ~c"}"]
   end
 
   defp encode_value(value), do: [to_string(value)]
+
+  defp camelize(name) do
+    case :binary.split(to_string(name), "_", [:global]) do
+      [name] -> name
+      [first | rest] -> [first | Enum.map(rest, &capitalize/1)]
+    end
+  end
+
+  defp capitalize(<<first, rest::binary>>) when first in ?a..?z, do: [first - 32 | rest]
+  defp capitalize(part), do: part
+
+  # The bytes that cannot appear literally inside a GraphQL string: the seven
+  # with a short escape, and the remaining control characters, which are written
+  # as `\uXXXX`.
+  @short_escapes %{
+    ?" => ~S(\"),
+    ?\\ => ~S(\\),
+    ?\b => ~S(\b),
+    ?\f => ~S(\f),
+    ?\n => ~S(\n),
+    ?\r => ~S(\r),
+    ?\t => ~S(\t)
+  }
+
+  @escapable for(char <- 0x00..0x1F, do: <<char>>) ++ [~s("), "\\"]
+
+  # Nothing needs escaping most of the time, and an argument can be large - the
+  # contents of a file, say - so the string is first scanned for anything that
+  # does, which `:binary.match/2` does in one pass over the whole binary instead
+  # of a byte at a time. Only a string that does need it walks the clauses
+  # below, and even then the runs between escapes are copied whole, appended to
+  # a binary the VM grows in place rather than to a list the query is later
+  # flattened from.
+  defp escape(string) do
+    case :binary.match(string, escape_pattern()) do
+      :nomatch -> string
+      _ -> escape(string, string, 0, 0, <<>>)
+    end
+  end
+
+  # A compiled pattern is a reference, so it cannot be a module attribute; it is
+  # built on first use and kept for the lifetime of the VM instead.
+  defp escape_pattern() do
+    case :persistent_term.get(__MODULE__, nil) do
+      nil ->
+        pattern = :binary.compile_pattern(@escapable)
+        :persistent_term.put(__MODULE__, pattern)
+        pattern
+
+      pattern ->
+        pattern
+    end
+  end
+
+  defp escape(<<>>, original, from, len, acc) do
+    <<acc::binary, binary_part(original, from, len)::binary>>
+  end
+
+  for {char, escaped} <- @short_escapes do
+    defp escape(<<unquote(char), rest::binary>>, original, from, len, acc) do
+      escape(rest, original, from + len + 1, 0, <<
+        acc::binary,
+        binary_part(original, from, len)::binary,
+        unquote(escaped)
+      >>)
+    end
+  end
+
+  defp escape(<<char, rest::binary>>, original, from, len, acc) when char < 0x20 do
+    escape(rest, original, from + len + 1, 0, <<
+      acc::binary,
+      binary_part(original, from, len)::binary,
+      unicode_escape(char)::binary
+    >>)
+  end
+
+  defp escape(<<_char, rest::binary>>, original, from, len, acc) do
+    escape(rest, original, from, len + 1, acc)
+  end
+
+  for char <- 0x00..0x1F do
+    defp unicode_escape(unquote(char)), do: unquote("\\u00" <> Base.encode16(<<char>>))
+  end
 
   def path(selection) do
     path(selection, [])
@@ -114,10 +207,4 @@ defmodule Dagger.Core.QueryBuilder do
     do: path(selection, acc)
 
   def path(%__MODULE__{prev: selection, name: name}, acc), do: path(selection, [name | acc])
-end
-
-defmodule Dagger.QueryError do
-  @moduledoc false
-
-  defstruct [:errors]
 end
