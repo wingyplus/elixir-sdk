@@ -1,0 +1,11 @@
+{
+  "description": "The platform config OS and architecture in a Container.",
+  "directives": [],
+  "enumValues": [],
+  "fields": [],
+  "inputFields": [],
+  "interfaces": [],
+  "kind": "SCALAR",
+  "name": "Platform",
+  "possibleTypes": []
+}

@@ -1,32 +1,31 @@
 defmodule Dagger.Codegen.Introspection.Types.InputValue do
-  defstruct [
-    :default_value,
-    :description,
-    :name,
-    :type,
-    :directives
-  ]
+  @moduledoc """
+  An argument to a field, or a field on an input object.
+  """
 
-  def is_optional?(%__MODULE__{} = input_value) do
-    input_value.type.kind != "NON_NULL"
-  end
+  alias Dagger.Codegen.Introspection.Types.Directive
+  alias Dagger.Codegen.Introspection.Types.TypeRef
 
-  def from_map(%{
-        "defaultValue" => default_value,
-        "description" => description,
-        "name" => name,
-        "type" => type
-      } = input_value) do
+  @type t :: %__MODULE__{
+          description: String.t() | nil,
+          name: String.t(),
+          type: TypeRef.t(),
+          directives: [Directive.t()]
+        }
+
+  defstruct [:description, :name, :type, directives: []]
+
+  @doc """
+  Whether the value may be omitted. GraphQL says so by not wrapping it in `NON_NULL`.
+  """
+  def is_optional?(%__MODULE__{} = input_value), do: input_value.type.kind != "NON_NULL"
+
+  def from_map(%{"description" => description, "name" => name, "type" => type} = input_value) do
     %__MODULE__{
-      default_value: default_value,
       description: description,
       name: name,
-      type: Dagger.Codegen.Introspection.Types.TypeRef.from_map(type),
-      directives:
-        Enum.map(
-          input_value["directives"] || [],
-          &Dagger.Codegen.Introspection.Types.Directive.from_map/1
-        )
+      type: TypeRef.from_map(type),
+      directives: Enum.map(input_value["directives"] || [], &Directive.from_map/1)
     }
   end
 end

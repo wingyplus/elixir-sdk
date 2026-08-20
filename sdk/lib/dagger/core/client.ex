@@ -9,6 +9,8 @@ defmodule Dagger.Core.Client do
   alias Dagger.Core.GraphQLClient
   alias Dagger.Core.QueryBuilder, as: QB
 
+  @type t :: %__MODULE__{url: String.t(), conn: EngineConn.t(), connect_opts: keyword()}
+
   defstruct [:url, :conn, :connect_opts]
 
   @doc false

@@ -1,7 +1,5 @@
-defmodule Dagger.Codegen.ElixirGenerator.EnumRendererTest do
+defmodule Dagger.Codegen.RenderEnumTest do
   use Dagger.Codegen.RendererCase, async: true
-
-  alias Dagger.Codegen.ElixirGenerator.EnumRenderer
 
   test "render enum" do
     auto_assert(
@@ -42,7 +40,7 @@ defmodule Dagger.Codegen.ElixirGenerator.EnumRendererTest do
         def from_string("PRIVATE"), do: :PRIVATE
         def from_string("LOCKED"), do: :LOCKED
       end\
-      """ <- render_type(EnumRenderer, "test/fixtures/enums/render-enum.json")
+      """ <- render_type("test/fixtures/enums/render-enum.json")
     )
   end
 end

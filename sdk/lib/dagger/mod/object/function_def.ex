@@ -85,7 +85,8 @@ defmodule Dagger.Mod.Object.FunctionDef do
         |> Enum.map(&normalize_arg_option/1)
 
       fun
-      |> Dagger.Function.with_arg(name, type_def, opts)
+      # The API takes argument names as strings; `defn` declares them as atoms.
+      |> Dagger.Function.with_arg(to_string(name), type_def, opts)
     end)
   end
 

@@ -12,7 +12,7 @@ defmodule Dagger.Mod.EncoderTest do
       assert {:ok, "false"} = Encoder.validate_and_encode(false, :boolean)
     end
 
-    test "encode list", %{dag: dag} do
+    test "encode list" do
       assert {:ok, "[1,2,3]"} = Encoder.validate_and_encode([1, 2, 3], {:list, :integer})
     end
 
@@ -23,18 +23,18 @@ defmodule Dagger.Mod.EncoderTest do
       assert is_binary(id)
     end
 
-    test "encode void type", %{dag: dag} do
+    test "encode void type" do
       assert {:ok, "null"} = Encoder.validate_and_encode("hello", Dagger.Void)
       assert {:ok, "null"} = Encoder.validate_and_encode(1, Dagger.Void)
       assert {:ok, "null"} = Encoder.validate_and_encode(:ok, Dagger.Void)
     end
 
-    test "encode object", %{dag: dag} do
+    test "encode object" do
       assert {:ok, "{\"name\":\"john\"}"} =
                Encoder.validate_and_encode(%ObjectField{name: "john"}, ObjectField)
     end
 
-    test "encode error", %{dag: dag} do
+    test "encode error" do
       assert {:error, _} = Encoder.validate_and_encode(1, :string)
     end
   end

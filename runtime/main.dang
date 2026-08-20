@@ -114,6 +114,16 @@ type ElixirSdkRuntime {
   }
 
   """
+  The code generator's sources — just enough to compile and run it. Deliberately
+  narrow so the container caches across edits to everything else.
+  """
+  let codegenSourceDir: Directory! {
+    sdkSourceDir
+      .directory("dagger_codegen")
+      .filter(include: ["mix.exs", "mix.lock", ".formatter.exs", "lib/**/*.ex"])
+  }
+
+  """
   Run `mix dagger.codegen` over the module's introspection schema and return the
   generated API bindings.
 
@@ -126,10 +136,15 @@ type ElixirSdkRuntime {
       .withExec(["mix", "local.hex", "--force"])
       .withExec(["mix", "local.rebar", "--force"])
       .withMountedCache("/root/.hex", cacheVolume("elixir-sdk-hex"))
-      .withMountedDirectory("/sdk", sdkSourceDir)
-      .withWorkdir("/sdk/dagger_codegen")
+      # Only the generator's own sources are mounted, not the whole SDK: editing
+      # library sources or codegen tests must not invalidate the layer that
+      # compiles the generator.
+      .withMountedDirectory("/codegen", codegenSourceDir)
+      .withWorkdir("/codegen")
       .withMountedFile("/schema.json", introspectionJSON)
-      .withExec(["mix", "deps.get"])
+      # dagger_codegen has no runtime dependencies; --only prod skips fetching
+      # the test-only ones it never uses here.
+      .withExec(["mix", "deps.get", "--only", "prod"])
       .withExec([
         "mix",
         "dagger.codegen",

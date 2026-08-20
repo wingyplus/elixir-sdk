@@ -49,23 +49,23 @@ type Dev {
   Run the client library's hermetic test suite.
 
   Tests tagged :integration need a live engine and are excluded by default; see
-  sdk/test/test_helper.exs.
+  sdk/test/test_helper.exs. Compiler warnings fail the check.
   """
   pub sdkTest: Void @check {
     devContainer
-      .withExec(["mix", "test"])
+      .withExec(["mix", "test", "--warnings-as-errors"])
       .sync
 
     null
   }
 
   """
-  Run the dagger_codegen test suite.
+  Run the dagger_codegen test suite. Compiler warnings fail the check.
   """
   pub codegenTest: Void @check {
     withCodegen(devContainer)
       .withEnvVariable("CI", "true")
-      .withExec(["mix", "test"])
+      .withExec(["mix", "test", "--warnings-as-errors"])
       .sync
 
     null

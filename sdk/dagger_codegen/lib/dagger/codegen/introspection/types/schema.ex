@@ -1,20 +1,18 @@
 defmodule Dagger.Codegen.Introspection.Types.Schema do
-  defstruct [
-    :query_type,
-    :types
-  ]
+  @moduledoc """
+  A GraphQL introspection schema, reduced to what the generator reads.
+  """
 
-  def get_type(%__MODULE__{} = schema, type) do
-    Enum.find(schema.types, &(&1.name == type.name))
-  end
+  alias Dagger.Codegen.Introspection.Types.Type
+
+  @type t :: %__MODULE__{types: [Type.t()]}
+
+  defstruct types: []
 
   @doc """
-  Convert a schema map from introspection.json into module.
+  Convert a schema map from introspection.json into a struct.
   """
-  def from_map(%{"queryType" => query_type, "types" => types}) do
-    %__MODULE__{
-      query_type: Dagger.Codegen.Introspection.Types.QueryType.from_map(query_type),
-      types: Enum.map(types, &Dagger.Codegen.Introspection.Types.Type.from_map/1)
-    }
+  def from_map(%{"types" => types}) do
+    %__MODULE__{types: Enum.map(types, &Type.from_map/1)}
   end
 end

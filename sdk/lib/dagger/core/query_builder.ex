@@ -1,6 +1,14 @@
 defmodule Dagger.Core.QueryBuilder do
   @moduledoc false
 
+  @type t :: %__MODULE__{
+          name: String.t() | nil,
+          args: map() | nil,
+          prev: t() | nil,
+          alias: String.t(),
+          inline_fragment: String.t() | nil
+        }
+
   defstruct [:name, :args, :prev, alias: "", inline_fragment: nil]
 
   def query(), do: %__MODULE__{}
