@@ -31,10 +31,10 @@ type E2e {
   Black-box runner for a fixture module.
   """
   let fixture(ws: Workspace!, name: String!): ModuleRunner! {
-    let source = polyfill.workspace(ws).moduleSource("/" + fixtureRoot + "/" + name)
+    let source = ws.moduleSource("/" + fixtureRoot + "/" + name)
     ModuleRunner(
-      workspaceView: source.workspaceView,
-      modulePath: source.sourceRootPath,
+      workspaceView: source.contextDirectory,
+      modulePath: source.sourceRootSubpath,
       daggerCliVersion: daggerCliVersion,
       timeout: "10m",
     )

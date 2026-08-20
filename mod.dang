@@ -61,32 +61,38 @@ type Mod {
   If the generate skip marker is present, the changeset is empty.
   """
   pub generate: Changeset! {
+    generatedWorkspace(ws).changes(ws)
+  }
+
+  """
+  Return `into` with this module's vendored SDK and API bindings applied.
+
+  Staging through the workspace rather than diffing directories is what lets
+  `generateAll` fold several modules together, and hands the changeset's cwd
+  measurement to the engine (the v1.0.0-beta.10 cutover) so a generate driven
+  from a subdirectory lands its files in the right place.
+
+  If the generate skip marker is present, `into` comes back untouched.
+  """
+  pub generatedWorkspace(into: Workspace!): Workspace! {
     if (skipGenerate) {
-      polyfill.workspace(ws).fork.changes
+      into
     } else {
       # Stage this module's local dependency closure first (leaf-first, possibly
-      # across SDKs) so its codegen sees up-to-date dependency bindings. The dep
-      # codegen is ephemeral: it appears in both the before and after of the
-      # changeset below, so it cancels out, leaving only this module's changes.
+      # across SDKs) so its codegen sees up-to-date dependency bindings.
       #
       # rootPath is workspace-root-relative, so anchor it at "/" before passing it
-      # through the cwd-aware polyfill.
-      let stagedWs = ws.withChanges(
-        polyfill.workspace(ws).moduleSource("/" + rootPath).core.generateLocalDependencies(ws),
+      # to the cwd-relative Workspace.moduleSource.
+      let stagedWs = into.withChanges(
+        into.moduleSource("/" + rootPath).generateLocalDependencies(into),
       )
-      let modSource = polyfill.workspace(stagedWs).moduleSource("/" + rootPath)
-      let vendored = vendoredSdk(modSource.core.introspectionSchemaJSON)
+      let modSource = stagedWs.moduleSource("/" + rootPath)
+      let vendored = vendoredSdk(modSource.introspectionSchemaJSON)
+      let genPath = "/" + joinPath(rootPath, genDir)
 
-      let before = if (rootPath == ".") {
-        stagedWs.directory("/", include: ["**"])
-      } else {
-        stagedWs.directory("/", include: [rootPath + "/**"])
-      }
-
-      before
-        .withoutDirectory(joinPath(rootPath, genDir))
-        .withDirectory(joinPath(rootPath, genDir), vendored)
-        .changes(before)
+      # Applied onto `into`, not `stagedWs`: the dependency codegen staged above
+      # is an input to this module's introspection, never part of its output.
+      into.withoutDirectory(genPath).withNewDirectory(genPath, vendored)
     }
   }
 

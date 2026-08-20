@@ -58,19 +58,30 @@ type ElixirSdk {
 
   """
   Return every managed Elixir SDK module visible from the client's cwd: the
-  nearest enclosing module plus modules at or below the cwd. Discovery uses the
-  shared polyfill and intersects its results with the SDK list on the passed
-  workspace.
+  nearest enclosing module plus modules at or below the cwd.
+
+  The engine owns both the list and the cwd policy — `currentModule.asSDK`
+  returns the modules registered to this SDK that sit at or below the client's
+  cwd, plus the nearest enclosing one when the cwd is not itself registered — so
+  running from a subdirectory acts on the project you are in, and the projects
+  beneath it. Paths come back workspace-root-relative, the currency
+  `Mod.rootPath` uses.
+
+  A module is registered by the directory holding its config, so one whose
+  source points elsewhere is listed at its config path and not from inside its
+  own source tree. Address those by path (see `mod`).
   """
   pub modules(ws: Workspace!): [Mod!]! {
-    let managed = currentModule.asSDK(workspace: ws).modules.{{path}}
-    let cwd = normalizePath(ws.cwd)
-    polyfill.workspace(ws)
-      .findConfigDirs(moduleConfigFilenames, exclude: ["**/_build/**", "**/deps/**"])
-      .map { dir => workspacePath(cwd, dir) }
-      .uniq
-      .filter { path => managed.filter { m => normalizePath(m.path) == path }.length > 0 }
-      .map { path => Mod(rootPath: path, ws: ws, skipGenerateFilename: skipGenerateFilename) }
+    currentModule
+      .asSDK(workspace: ws)
+      .modules.{{path}}
+      .map { module =>
+        Mod(
+          rootPath: normalizePath(module.path),
+          ws: ws,
+          skipGenerateFilename: skipGenerateFilename,
+        )
+      }
   }
 
   """
@@ -143,9 +154,24 @@ type ElixirSdk {
     if (currentModule.source.exists("templates/" + selectedTemplate) == false) {
       raise "unknown init template: " + template
     } else {
-      polyfill.workspace(ws).fork
-        .withDirectory(modPath, renderedTemplate(name, selectedTemplate))
-        .changes
+      # Workspace.withNewDirectory replaces the overlay entry at its path, so
+      # anything already sitting at modPath has to be carried over explicitly —
+      # otherwise init reports those files removed, which the SDK contract
+      # forbids.
+      let scope = if (modPath == ".") { "**" } else { modPath + "/**" }
+      let root = ws.directory("/", include: [scope])
+      let rendered = renderedTemplate(name, selectedTemplate)
+      let source = if (root.exists(modPath)) {
+        root.directory(modPath).withDirectory(".", rendered)
+      } else {
+        rendered
+      }
+
+      # `modPath` is workspace-root-relative, so anchor it at "/": a relative
+      # workspace path resolves from ws.cwd and would be prefixed a second time
+      # when initModule is called directly from a subdirectory rather than
+      # driven by the engine.
+      ws.withNewDirectory("/" + modPath, source).changes(ws)
     }
   }
 
@@ -172,25 +198,14 @@ type ElixirSdk {
   Modules with the generate skip marker are skipped.
   """
   pub generateAll(ws: Workspace!): Changeset! @generate {
-    changeset.withChangesets(
-      modules(ws)
-        .filter { mod => mod.skipGenerate == false }
-        .map { mod => mod.generate },
-    )
-  }
-
-  let workspacePath(cwd: String!, path: String!): String! {
-    let base = if (cwd == ".") { [] } else { cwd.split("/") }
-    let segments = path.split("/").reduce(base) { acc, segment =>
-      if (segment == "..") {
-        acc.dropLast(1)
-      } else if (segment == "." or segment == "") {
-        acc
-      } else {
-        acc + [segment]
-      }
-    }
-    if (segments.length == 0) { "." } else { segments.join("/") }
+    # Each module generates onto the workspace the previous one produced, so the
+    # results accumulate by overlay and one diff at the end carries them all.
+    # Folding per-module changesets instead would mean measuring each one against
+    # `ws` — past the cwd cutover the engine measures those from the cwd, which
+    # is not the frame Workspace.withChanges applies them in.
+    modules(ws)
+      .reduce(ws) { stagedWs, mod => mod.generatedWorkspace(stagedWs) }
+      .changes(ws)
   }
 
   let normalizePath(path: String!): String! {

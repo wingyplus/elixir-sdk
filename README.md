@@ -10,8 +10,6 @@ files with its own workspace bookkeeping. Shared, language-agnostic operations â
 module's dependencies or its required engine version â€” are owned by the core CLI
 (`dagger module deps`, `dagger module engine`) and are not part of this module's surface.
 
-Backed by [`github.com/dagger/polyfill`](https://github.com/dagger/polyfill).
-
 ## What's in here
 
 | Path | What it is |
