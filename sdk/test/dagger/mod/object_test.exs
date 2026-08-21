@@ -220,6 +220,29 @@ defmodule Dagger.Mod.ObjectTest do
              ]
     end
 
+    test "an optional argument defaults to nil in the function head" do
+      # The engine may leave an optional argument out, so an Elixir caller can
+      # leave it out too.
+      assert OptionalArgs.optional_arg() == "Hello, "
+      assert OptionalArgs.optional_arg("world") == "Hello, world"
+    end
+
+    test "an argument default becomes the Elixir default" do
+      assert PrimitiveTypeDefaultArgs.accept_default_string() == "Hello Foo"
+      assert PrimitiveTypeDefaultArgs.accept_default_string("Bar") == "Hello Bar"
+      assert PrimitiveTypeDefaultArgs.accept_default_integer() == 42
+      assert PrimitiveTypeDefaultArgs.accept_default_float() == 1.6180342
+      assert PrimitiveTypeDefaultArgs.accept_default_boolean() == false
+    end
+
+    test "a required argument gets no default" do
+      # `function_exported?/3` answers for a loaded module only.
+      Code.ensure_loaded!(PrimitiveTypeArgs)
+
+      refute function_exported?(PrimitiveTypeArgs, :accept_string, 0)
+      assert function_exported?(PrimitiveTypeArgs, :accept_string, 1)
+    end
+
     test "argument options" do
       assert ArgOptions.__object__(:functions) == [
                type_option: %FunctionDef{
