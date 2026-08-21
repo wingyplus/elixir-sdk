@@ -133,8 +133,64 @@ defmodule Dagger.Core.QueryBuilderTest do
       assert q == "query{container{envVariables{id}}}"
     end
 
+    test "select a field nested inside the set" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select_fields(["a", "b", {"c", ["nested_c_d"]}])
+        |> QB.build()
+
+      assert q == "query{container{a b c{nested_c_d}}}"
+    end
+
+    test "select fields nested to any depth" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select_fields([{"a", [{"b", ["c"]}]}])
+        |> QB.build()
+
+      assert q == "query{container{a{b{c}}}}"
+    end
+
+    test "select more than one nested field in the same set" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select_fields(["a", {"b", ["c", "d"]}, {"e", ["f"]}, "g"])
+        |> QB.build()
+
+      assert q == "query{container{a b{c d} e{f} g}}"
+    end
+
+    test "reject a field that is neither a name nor a name and its fields" do
+      q = QB.query() |> QB.select("container")
+
+      assert_raise ArgumentError, ~r/got: :id/, fn -> QB.select_fields(q, [:id]) end
+
+      assert_raise ArgumentError, ~r/got: \{"c", \[\]\}/, fn ->
+        QB.select_fields(q, [{"c", []}])
+      end
+
+      assert_raise ArgumentError, ~r/got: \{:c, \["d"\]\}/, fn ->
+        QB.select_fields(q, [{:c, ["d"]}])
+      end
+
+      assert_raise ArgumentError, ~r/got: :d/, fn ->
+        QB.select_fields(q, [{"c", [{"d", ["e"]}, :d]}])
+      end
+    end
+
     test "a leaf field set ends the query" do
       q = QB.query() |> QB.select("container") |> QB.select_fields(["stdout", "stderr"])
+
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select(q, "stdout") end
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select_fields(q, ["id"]) end
+      assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.inline_fragment(q, "File") end
+    end
+
+    test "a nested leaf field set ends the query too" do
+      q = QB.query() |> QB.select("container") |> QB.select_fields([{"c", ["d"]}])
 
       assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select(q, "stdout") end
       assert_raise ArgumentError, ~r/a query ends there/, fn -> QB.select_fields(q, ["id"]) end
@@ -159,6 +215,16 @@ defmodule Dagger.Core.QueryBuilderTest do
         |> QB.select("container")
         |> QB.select("envVariables")
         |> QB.select_fields(["id", "name"])
+
+      assert QB.path(q) == ["container", "envVariables"]
+    end
+
+    test "stop above a nested leaf field set" do
+      q =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("envVariables")
+        |> QB.select_fields(["name", {"value", ["raw"]}])
 
       assert QB.path(q) == ["container", "envVariables"]
     end
