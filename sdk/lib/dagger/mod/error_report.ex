@@ -114,7 +114,8 @@ defmodule Dagger.Mod.ErrorReport do
     Map.put(values, @exception_stacktrace, Exception.format_stacktrace(stacktrace))
   end
 
-  defp merge_extensions(values, %Response.Error{extensions: extensions}) when is_map(extensions) do
+  defp merge_extensions(values, %Response.Error{extensions: extensions})
+       when is_map(extensions) do
     Map.merge(values, extensions)
   end
 
