@@ -49,8 +49,23 @@ defmodule Dagger.Mod.Encoder do
     {:ok, value}
   end
 
+  # The engine looks a returned enum member up by the name it was registered
+  # under, which is its key.
+  defp validate(key, module) when is_atom(key) and is_atom(module) do
+    if enum?(module) and key in Dagger.Mod.Enum.keys(module) do
+      {:ok, Atom.to_string(key)}
+    else
+      {:error, %Dagger.Mod.TypeMismatchError{value: key, type: module}}
+    end
+  end
+
   defp validate(value, type) do
     {:error, %Dagger.Mod.TypeMismatchError{value: value, type: type}}
+  end
+
+  defp enum?(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :__kind__, 0) and
+      module.__kind__() == :enum
   end
 
   defp encode(value) do

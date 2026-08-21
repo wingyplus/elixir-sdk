@@ -54,11 +54,6 @@ defmodule Dagger.Mod.Module do
   defp maybe_put_optional(opts, nil), do: opts
   defp maybe_put_optional(opts, {key, val}), do: Keyword.put(opts, key, val)
 
-  def extract_keys_from_base(module) do
-    {:ok, [type: {:t, {:type, _, :union, unions}, _}]} = Code.Typespec.fetch_types(module)
-    unions |> Enum.map(&elem(&1, 2))
-  end
-
   def define_enum(dag, module) do
     mod_name = module.__name__()
 
@@ -69,28 +64,18 @@ defmodule Dagger.Mod.Module do
         description: Object.get_module_doc(module)
       )
 
-    keys =
-      case Kernel.function_exported?(module, :__enum__, 1) do
-        true -> module.__enum__(:keys)
-        false -> extract_keys_from_base(module)
-      end
-
-    keys
-    |> Enum.reduce(type_def, fn keys, tdef ->
-      key =
-        case keys do
-          {k, _v} when is_atom(k) -> k
-          k when is_atom(k) -> k
-        end
-
-      val = key |> Atom.to_string()
-
+    module
+    |> Dagger.Mod.Enum.keys()
+    |> Enum.reduce(type_def, fn key, tdef ->
+      # The engine names the member by its key and hands that name back to the
+      # module at call time. The declared value rides along as `value`: it is
+      # what a dependent SDK generates its constant from.
       opts =
         []
-        |> maybe_put_optional({:value, val})
+        |> maybe_put_optional({:value, Dagger.Mod.Enum.get_key_value(module, key)})
         |> maybe_put_optional({:description, Dagger.Mod.Enum.get_key_description(module, key)})
 
-      Dagger.TypeDef.with_enum_member(tdef, val, opts)
+      Dagger.TypeDef.with_enum_member(tdef, Atom.to_string(key), opts)
     end)
   end
 

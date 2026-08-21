@@ -144,6 +144,62 @@ type E2e {
   }
 
   """
+  An enum member whose declared wire value differs from its key round-trips.
+
+  `AliasEnum` spells every member as `KEY: "value"`, so the key and the wire
+  value can never be mistaken for one another. The engine names members by their
+  key and hands that name back to the module, while the declared value is what
+  the member registers as its `value` -- what a dependent SDK generates its
+  constant from.
+  """
+  pub enumAliasValueCheck(ws: Workspace!): Void @check {
+    let defaults = fixture(ws, "defaults")
+
+    defaults.assertJsonString(
+      ["echo-alias-enum", "--value=UNKNOWN"],
+      "UNKNOWN",
+      "an aliased enum member should decode to its key, not its wire value",
+    )
+    defaults.assertJsonString(
+      ["echo-alias-enum", "--value=LOW"],
+      "LOW",
+      "an aliased enum member with a doc should decode to its key too",
+    )
+    defaults.assertJsonString(
+      ["alias-enum-round-trip", "--value=UNKNOWN"],
+      "UNKNOWN",
+      "an aliased enum member returned from a function should reach the caller",
+    )
+    defaults.assertJsonString(
+      ["alias-enum-wire-value", "--value=UNKNOWN"],
+      "unknown",
+      "the declared wire value should still be reachable from the decoded key",
+    )
+
+    # `AliasEnum.HIGH` declares "critical", so a default registered from its wire
+    # value would name a member the enum does not have.
+    defaults.assertJsonString(
+      ["alias-enum-default"],
+      "HIGH",
+      "an omitted aliased enum argument should fall back to its default",
+    )
+    defaults.assertJsonString(
+      ["alias-enum-default", "--value=LOW"],
+      "LOW",
+      "a passed aliased enum member should override its default",
+    )
+
+    # The members are named by their keys, so those -- not the declared wire
+    # values -- are what the engine offers as the accepted values.
+    let wrong = defaults.tryCall(["echo-alias-enum", "--value=CRITICAL"])
+    assert(wrong.succeeded == false, "a declared wire value should not name a member")
+    assert(
+      wrong.stderr.contains("invalid argument \"CRITICAL\" for \"--value\" flag: value should be one of HIGH,LOW,UNKNOWN"),
+      "the members should be named by their keys, got stderr:\n" + wrong.stderr,
+    )
+  }
+
+  """
   A module works with the `Req` GraphQL client adapter.
   """
   pub reqAdapterCheck(ws: Workspace!): Void @check {

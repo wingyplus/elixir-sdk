@@ -49,6 +49,13 @@ defmodule Dagger.Mod.DecoderTest do
     test "decode enum", %{dag: dag} do
       assert {:ok, :unknown} = Decoder.decode(json("unknown"), SimpleEnum, dag)
     end
+
+    test "decode enum with a custom member value", %{dag: dag} do
+      # The engine names a member by its key, so that -- not the declared wire
+      # value -- is the string that comes back.
+      assert {:ok, :UNKNOWN} = Decoder.decode(json("UNKNOWN"), EnumAliasValue, dag)
+      assert {:ok, :LOW} = Decoder.decode(json("LOW"), EnumAliasValue, dag)
+    end
   end
 
   defp json(value), do: Jason.encode!(value)
