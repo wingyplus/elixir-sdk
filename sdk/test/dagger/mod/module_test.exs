@@ -484,6 +484,20 @@ defmodule Dagger.Mod.ModuleTest do
       assert {:ok, "generatorWithOptionalArg"} = Dagger.Function.name(generator_with_arg)
     end
 
+    test "up and agent flags are accepted by the engine", %{dag: dag} do
+      assert {:ok, [up_service, plain_service]} =
+               root_object(dag, UpOption) |> Dagger.ObjectTypeDef.functions()
+
+      assert {:ok, "upService"} = Dagger.Function.name(up_service)
+      assert {:ok, "plainService"} = Dagger.Function.name(plain_service)
+
+      assert {:ok, [agent_function, agent_with_optional_arg]} =
+               root_object(dag, AgentOption) |> Dagger.ObjectTypeDef.functions()
+
+      assert {:ok, "agentFunction"} = Dagger.Function.name(agent_function)
+      assert {:ok, "agentWithOptionalArg"} = Dagger.Function.name(agent_with_optional_arg)
+    end
+
     test "flags and cache combine on one function", %{dag: dag} do
       assert {:ok, [everything]} =
                root_object(dag, CombinedOptions) |> Dagger.ObjectTypeDef.functions()

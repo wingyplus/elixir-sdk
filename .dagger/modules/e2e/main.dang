@@ -261,6 +261,25 @@ type E2e {
   }
 
   """
+  Functions declared with the `:up` or `:agent` option are accepted by the engine.
+
+  The engine validates both shapes when it loads the module -- `@up` must return
+  `Service!` and take no required argument, `@agent` must have the
+  `agent(base: LLM!): LLM!` shape -- so a module carrying them loads at all only
+  when the SDK registered them correctly. Neither is a check, so neither is
+  discovered by `dagger check`.
+  """
+  pub upAndAgentFunctionsCheck(ws: Workspace!): Void @check {
+    let checks = fixture(ws, "hello-with-checks")
+
+    let listed = checks.check(["-l"])
+    listed.assertSuccess
+    let names = listed.output
+    assert(names.contains("up-service") == false, "up-service is not a check and should not be listed: " + names)
+    assert(names.contains("agent-middleware") == false, "agent-middleware is not a check and should not be listed: " + names)
+  }
+
+  """
   Functions declared with the `:generate` option are registered as generators.
 
   Run as a check, a generator passes only when its changeset is empty --

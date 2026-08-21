@@ -187,6 +187,41 @@ defmodule GenerateOption do
   end
 end
 
+defmodule UpOption do
+  @moduledoc false
+  use Dagger.Mod.Object, name: "UpOption"
+
+  defn up_service() :: Dagger.Service.t(), :up do
+    dag()
+    |> Dagger.Client.container()
+    |> Dagger.Container.from("nginx")
+    |> Dagger.Container.as_service()
+  end
+
+  defn plain_service() :: Dagger.Service.t() do
+    dag()
+    |> Dagger.Client.container()
+    |> Dagger.Container.from("nginx")
+    |> Dagger.Container.as_service()
+  end
+end
+
+defmodule AgentOption do
+  @moduledoc false
+  use Dagger.Mod.Object, name: "AgentOption"
+
+  defn agent_function(base: Dagger.LLM.t()) :: Dagger.LLM.t(), :agent do
+    Dagger.LLM.with_prompt(base, "be helpful")
+  end
+
+  # The base is the one required argument; the rest may be left out.
+  defn agent_with_optional_arg(base: Dagger.LLM.t(), prompt: {String.t(), default: "be helpful"}) ::
+         Dagger.LLM.t(),
+       :agent do
+    Dagger.LLM.with_prompt(base, prompt)
+  end
+end
+
 # The signatures `:check` and `:generate` accept. The rejected ones cannot
 # live here: they raise while this file compiles, so they are declared inline
 # in the test instead.
@@ -229,6 +264,28 @@ defmodule FlagSignatures do
        :generate do
     _ = dir
     dag() |> Dagger.Client.changeset()
+  end
+
+  defn up_with_self(_self) :: Dagger.Service.t(), :up do
+    dag() |> Dagger.Client.container() |> Dagger.Container.as_service()
+  end
+
+  defn up_with_default(image: {String.t(), default: "nginx"}) :: Dagger.Service.t(), :up do
+    dag()
+    |> Dagger.Client.container()
+    |> Dagger.Container.from(image)
+    |> Dagger.Container.as_service()
+  end
+
+  defn agent_with_self(_self, base: Dagger.LLM.t()) :: Dagger.LLM.t(), :agent do
+    base
+  end
+
+  defn agent_with_optional(base: Dagger.LLM.t(), prompt: String.t() | nil) ::
+         Dagger.LLM.t(),
+       :agent do
+    _ = prompt
+    base
   end
 end
 

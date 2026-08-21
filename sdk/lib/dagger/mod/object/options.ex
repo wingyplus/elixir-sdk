@@ -9,10 +9,16 @@ defmodule Dagger.Mod.Object.Options do
   # list with every key filled in. Every value is an AST literal, so the
   # result can be `unquote`d straight into a `Dagger.Mod.Object.FunctionDef`.
 
-  @flags [:check, :generate]
-  @keys [:check, :generate, :cache]
+  @flags [:check, :generate, :up, :agent]
+
+  # The flags the engine runs on its own, so nobody is left to supply an
+  # argument. `:agent` is not one of them: the compose fold hands it a base
+  # `LLM`, which it declares as a required argument.
+  @no_arg_flags [:check, :generate, :up]
+
+  @keys @flags ++ [:cache]
   @policies [:default, :never, :per_session]
-  @defaults [check: false, generate: false, cache: nil]
+  @defaults [check: false, generate: false, up: false, agent: false, cache: nil]
 
   # Go duration string, e.g. "30s", "1h", "1h30m", "1.5h".
   @duration ~r/^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/
@@ -34,7 +40,7 @@ defmodule Dagger.Mod.Object.Options do
     |> reject_unsupported!(fun_name)
   end
 
-  # `:check` and `:generate` are flags, so a bare atom means "on".
+  # Every flag is boolean, so a bare atom means "on".
   defp expand(flag, _fun_name) when flag in @flags, do: {flag, true}
   defp expand({key, value}, _fun_name) when key in @keys, do: {key, value}
 
@@ -110,45 +116,104 @@ defmodule Dagger.Mod.Object.Options do
   `return_def` the compiled return type, both as produced by
   `Dagger.Mod.Object.defn/3`.
 
+  Every rule here mirrors one the engine applies in `validateObjectFunction`
+  when the module is loaded (`core/module.go`); catching them at compile time
+  turns a run-time failure into an error at the `defn` that declared it.
+
   Raises `ArgumentError` when a flag's contract is violated:
 
-    * `:generate` must return the core `Changeset!` type. The engine enforces
-      this in `validateGeneratorFunction` when the module is loaded; catching
-      it here turns a run-time failure into a compile error.
+    * `:generate` must return the core `Changeset!` type, `:up` the core
+      `Service!` type and `:agent` the core `LLM!` type.
 
-    * `:generate` and `:check` must be callable with no caller-supplied
-      arguments. `dagger check` and `dagger generate` discover and run these
-      functions on their own, so there is nobody to supply a required
+    * `:check`, `:generate` and `:up` must be callable with no caller-supplied
+      arguments. `dagger check`, `dagger generate` and `dagger up` discover and
+      run these functions on their own, so there is nobody to supply a required
       argument.
+
+    * `:agent` must declare exactly one required argument, the base `LLM` the
+      compose fold supplies. Any other required argument is rejected.
   """
   @spec validate_signature!(keyword(), atom(), keyword(), term()) :: :ok
   def validate_signature!(opts, fun_name, arg_defs, return_def) when is_atom(fun_name) do
-    if opts[:generate] do
-      validate_generator_return!(return_def, fun_name)
-    end
-
     Enum.each(@flags, fn flag ->
+      if opts[flag] do
+        validate_return!(return_def, flag, fun_name)
+      end
+    end)
+
+    Enum.each(@no_arg_flags, fn flag ->
       if opts[flag] do
         validate_no_required_args!(arg_defs, flag, fun_name)
       end
     end)
 
+    if opts[:agent] do
+      validate_agent_base_arg!(arg_defs, fun_name)
+    end
+
     :ok
   end
 
-  defp validate_generator_return!(Dagger.Changeset, _fun_name), do: :ok
+  # `:check` constrains only the arguments, never the return type: a check
+  # fails by raising, or by returning a container whose last command exited
+  # non-zero.
+  defp validate_return!(_return_def, :check, _fun_name), do: :ok
 
-  defp validate_generator_return!({:optional, Dagger.Changeset}, fun_name) do
-    raise ArgumentError,
-          "the return type of `defn #{fun_name}` must not be optional because it is " <>
-            "declared :generate. Write it as `Dagger.Changeset.t()`, not " <>
-            "`Dagger.Changeset.t() | nil`"
+  defp validate_return!(return_def, flag, fun_name) do
+    validate_core_return!(return_def, core_return(flag), flag, fun_name)
   end
 
-  defp validate_generator_return!(return_def, fun_name) do
+  defp core_return(:generate), do: Dagger.Changeset
+  defp core_return(:up), do: Dagger.Service
+  defp core_return(:agent), do: Dagger.LLM
+
+  defp validate_core_return!(module, module, _flag, _fun_name), do: :ok
+
+  defp validate_core_return!({:optional, module}, module, flag, fun_name) do
     raise ArgumentError,
-          "`defn #{fun_name}` is declared :generate, so it must return " <>
-            "`Dagger.Changeset.t()`, got: `#{describe_type(return_def)}`"
+          "the return type of `defn #{fun_name}` must not be optional because it is " <>
+            "declared #{inspect(flag)}. Write it as `#{inspect(module)}.t()`, not " <>
+            "`#{inspect(module)}.t() | nil`"
+  end
+
+  defp validate_core_return!(return_def, module, flag, fun_name) do
+    raise ArgumentError,
+          "`defn #{fun_name}` is declared #{inspect(flag)}, so it must return " <>
+            "`#{inspect(module)}.t()`, got: `#{describe_type(return_def)}`"
+  end
+
+  # The base the compose fold supplies is the one required argument an agent
+  # may declare.
+  defp validate_agent_base_arg!(arg_defs, fun_name) do
+    arg_defs
+    |> Enum.filter(&required?/1)
+    |> exempt_base(false, fun_name)
+  end
+
+  # Walks the required arguments the way `validateAgentFunction` does: the
+  # first `LLM` among them is the base and is exempt, and anything else that
+  # is still required is an error.
+  defp exempt_base([], true, _fun_name), do: :ok
+
+  defp exempt_base([], false, fun_name) do
+    raise ArgumentError,
+          "`defn #{fun_name}` is declared :agent, so it must declare a required " <>
+            "`Dagger.LLM.t()` argument, the base the compose fold supplies"
+  end
+
+  defp exempt_base([{name, meta} | rest], exempted?, fun_name) do
+    if not exempted? and meta[:type] == Dagger.LLM do
+      exempt_base(rest, true, fun_name)
+    else
+      raise ArgumentError, extra_agent_arg(fun_name, name)
+    end
+  end
+
+  defp extra_agent_arg(fun_name, name) do
+    "`defn #{fun_name}` is declared :agent, so it may only require the base " <>
+      "`Dagger.LLM.t()` argument, but `#{name}` is also required. " <>
+      "Give the argument a `:default` or a `:default_path`, or type it as " <>
+      "optional (`type | nil`)"
   end
 
   # A required argument is one the caller has to supply: not optional, and

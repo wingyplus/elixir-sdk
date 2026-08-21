@@ -368,6 +368,42 @@ defmodule Dagger.Mod.ObjectTest do
              ] = GenerateOption.__object__(:functions)
     end
 
+    test "up option" do
+      assert [
+               up_service: %FunctionDef{
+                 self: false,
+                 args: [],
+                 return: Dagger.Service,
+                 up: true,
+                 agent: false
+               },
+               plain_service: %FunctionDef{
+                 self: false,
+                 args: [],
+                 return: Dagger.Service,
+                 up: false,
+                 agent: false
+               }
+             ] = UpOption.__object__(:functions)
+    end
+
+    test "agent option" do
+      assert [
+               agent_function: %FunctionDef{
+                 self: false,
+                 return: Dagger.LLM,
+                 up: false,
+                 agent: true
+               },
+               agent_with_optional_arg: %FunctionDef{
+                 self: false,
+                 return: Dagger.LLM,
+                 up: false,
+                 agent: true
+               }
+             ] = AgentOption.__object__(:functions)
+    end
+
     test "cache option" do
       assert CacheOption.__object__(:functions) == [
                default_cached: %FunctionDef{
@@ -428,8 +464,8 @@ defmodule Dagger.Mod.ObjectTest do
         defn_options(:f, ttl: "30s")
       end
 
-      assert_raise ArgumentError, ~r/unknown option :up for `defn f`/, fn ->
-        defn_options(:f, :up)
+      assert_raise ArgumentError, ~r/unknown option :down for `defn f`/, fn ->
+        defn_options(:f, :down)
       end
 
       assert_raise ArgumentError, ~r/expected :check to be a boolean/, fn ->
@@ -454,6 +490,14 @@ defmodule Dagger.Mod.ObjectTest do
 
       assert_raise ArgumentError, ~r/:generate cannot be used on `defn init`/, fn ->
         defn_options(:init, :generate)
+      end
+
+      assert_raise ArgumentError, ~r/:up cannot be used on `defn init`/, fn ->
+        defn_options(:init, :up)
+      end
+
+      assert_raise ArgumentError, ~r/:agent cannot be used on `defn init`/, fn ->
+        defn_options(:init, :agent)
       end
     end
 
@@ -566,7 +610,148 @@ defmodule Dagger.Mod.ObjectTest do
                    end
     end
 
-    test "signatures a check or a generator accepts" do
+    test "an up function must return a service" do
+      assert_raise ArgumentError,
+                   ~r/`defn serve` is declared :up, so it must return `Dagger\.Service\.t\(\)`, got: `Dagger\.Container\.t\(\)`/,
+                   fn ->
+                     defmodule UpReturnsContainer do
+                       use Dagger.Mod.Object, name: "UpReturnsContainer"
+
+                       defn serve() :: Dagger.Container.t(), :up do
+                         dag() |> Dagger.Client.container()
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/the return type of `defn serve` must not be optional because it is declared :up/,
+                   fn ->
+                     defmodule UpReturnsOptional do
+                       use Dagger.Mod.Object, name: "UpReturnsOptional"
+
+                       defn serve() :: Dagger.Service.t() | nil, :up do
+                         nil
+                       end
+                     end
+                   end
+    end
+
+    test "an up function cannot take a required argument" do
+      assert_raise ArgumentError,
+                   ~r/`defn serve` is declared :up, so it must be callable with no arguments, but `image` is required/,
+                   fn ->
+                     defmodule UpWithRequiredArg do
+                       use Dagger.Mod.Object, name: "UpWithRequiredArg"
+
+                       defn serve(image: String.t()) :: Dagger.Service.t(), :up do
+                         _ = image
+                         dag() |> Dagger.Client.container() |> Dagger.Container.as_service()
+                       end
+                     end
+                   end
+    end
+
+    test "an agent must return an llm" do
+      assert_raise ArgumentError,
+                   ~r/`defn compose` is declared :agent, so it must return `Dagger\.LLM\.t\(\)`, got: `String\.t\(\)`/,
+                   fn ->
+                     defmodule AgentReturnsString do
+                       use Dagger.Mod.Object, name: "AgentReturnsString"
+
+                       defn compose(base: Dagger.LLM.t()) :: String.t(), :agent do
+                         _ = base
+                         "nope"
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/the return type of `defn compose` must not be optional because it is declared :agent/,
+                   fn ->
+                     defmodule AgentReturnsOptional do
+                       use Dagger.Mod.Object, name: "AgentReturnsOptional"
+
+                       defn compose(base: Dagger.LLM.t()) :: Dagger.LLM.t() | nil, :agent do
+                         base
+                       end
+                     end
+                   end
+    end
+
+    test "an agent must require exactly the base llm" do
+      assert_raise ArgumentError,
+                   ~r/`defn compose` is declared :agent, so it must declare a required `Dagger\.LLM\.t\(\)` argument/,
+                   fn ->
+                     defmodule AgentWithoutBase do
+                       use Dagger.Mod.Object, name: "AgentWithoutBase"
+
+                       defn compose() :: Dagger.LLM.t(), :agent do
+                         dag() |> Dagger.Client.llm()
+                       end
+                     end
+                   end
+
+      # An optional `LLM` is not a base: the compose fold has nothing to hand it to.
+      assert_raise ArgumentError,
+                   ~r/`defn compose` is declared :agent, so it must declare a required `Dagger\.LLM\.t\(\)` argument/,
+                   fn ->
+                     defmodule AgentWithOptionalBase do
+                       use Dagger.Mod.Object, name: "AgentWithOptionalBase"
+
+                       defn compose(base: Dagger.LLM.t() | nil) :: Dagger.LLM.t(), :agent do
+                         base
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/`defn compose` is declared :agent, so it may only require the base `Dagger\.LLM\.t\(\)` argument, but `prompt` is also required/,
+                   fn ->
+                     defmodule AgentWithExtraRequiredArg do
+                       use Dagger.Mod.Object, name: "AgentWithExtraRequiredArg"
+
+                       defn compose(base: Dagger.LLM.t(), prompt: String.t()) ::
+                              Dagger.LLM.t(),
+                            :agent do
+                         Dagger.LLM.with_prompt(base, prompt)
+                       end
+                     end
+                   end
+
+      # The base is exempt wherever it sits, so the other required argument is
+      # the one reported.
+      assert_raise ArgumentError,
+                   ~r/but `prompt` is also required/,
+                   fn ->
+                     defmodule AgentWithLeadingRequiredArg do
+                       use Dagger.Mod.Object, name: "AgentWithLeadingRequiredArg"
+
+                       defn compose(prompt: String.t(), base: Dagger.LLM.t()) ::
+                              Dagger.LLM.t(),
+                            :agent do
+                         Dagger.LLM.with_prompt(base, prompt)
+                       end
+                     end
+                   end
+
+      # Only one `LLM` is the base; a second is just another required argument.
+      assert_raise ArgumentError,
+                   ~r/but `other` is also required/,
+                   fn ->
+                     defmodule AgentWithTwoLLMArgs do
+                       use Dagger.Mod.Object, name: "AgentWithTwoLLMArgs"
+
+                       defn compose(base: Dagger.LLM.t(), other: Dagger.LLM.t()) ::
+                              Dagger.LLM.t(),
+                            :agent do
+                         _ = other
+                         base
+                       end
+                     end
+                   end
+    end
+
+    test "signatures the flags accept" do
       assert [
                check_with_self: %FunctionDef{self: true, args: [], check: true},
                generate_with_self: %FunctionDef{
@@ -581,13 +766,17 @@ defmodule Dagger.Mod.ObjectTest do
                generate_with_default_path: %FunctionDef{
                  return: Dagger.Changeset,
                  generate: true
-               }
+               },
+               up_with_self: %FunctionDef{self: true, args: [], return: Dagger.Service, up: true},
+               up_with_default: %FunctionDef{return: Dagger.Service, up: true},
+               agent_with_self: %FunctionDef{self: true, return: Dagger.LLM, agent: true},
+               agent_with_optional: %FunctionDef{return: Dagger.LLM, agent: true}
              ] = FlagSignatures.__object__(:functions)
     end
 
     test "options are optional and default to off" do
       assert Dagger.Mod.Object.Options.normalize!([], :f) ==
-               [check: false, generate: false, cache: nil]
+               [check: false, generate: false, up: false, agent: false, cache: nil]
 
       assert Dagger.Mod.Object.Options.normalize!(:check, :f)[:check]
       assert Dagger.Mod.Object.Options.normalize!([cache: :never], :init)[:cache] == :never
