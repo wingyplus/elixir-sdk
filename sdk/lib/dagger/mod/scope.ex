@@ -12,19 +12,19 @@ defmodule Dagger.Mod.Scope do
     :input_args
   ]
 
-  def from_fn_call(fn_call) do
-    with {:ok, parent_name} <- Dagger.FunctionCall.parent_name(fn_call),
-         {:ok, fn_name} <- Dagger.FunctionCall.name(fn_call),
-         {:ok, parent_json} <- Dagger.FunctionCall.parent(fn_call),
-         {:ok, input_args} <- Dagger.FunctionCall.input_args(fn_call) do
-      {:ok,
-       %__MODULE__{
-         parent_name: parent_name,
-         parent_json: parent_json,
-         fn_name: fn_name,
-         input_args: input_args
-       }}
-    end
+  @doc """
+  Build the scope from a `currentFunctionCall` response.
+
+  The caller selects the whole call at once, so the fields come in already
+  decoded, keyed by the schema's own names.
+  """
+  def from_fn_call(%{} = fn_call) do
+    %__MODULE__{
+      parent_name: fn_call["parentName"],
+      parent_json: fn_call["parent"],
+      fn_name: fn_call["name"],
+      input_args: fn_call["inputArgs"]
+    }
   end
 
   def fn_name(%__MODULE__{} = scope) do
@@ -42,9 +42,7 @@ defmodule Dagger.Mod.Scope do
   end
 
   defp fetch_args!(input_args) do
-    Enum.into(input_args, %{}, fn arg ->
-      {:ok, name} = Dagger.FunctionCallArgValue.name(arg)
-      {:ok, value} = Dagger.FunctionCallArgValue.value(arg)
+    Enum.into(input_args, %{}, fn %{"name" => name, "value" => value} ->
       {Macro.underscore(name), value}
     end)
   end

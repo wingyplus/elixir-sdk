@@ -1,6 +1,8 @@
 defmodule Dagger.Mod do
   @moduledoc false
 
+  alias Dagger.Core.Client
+  alias Dagger.Core.QueryBuilder, as: QB
   alias Dagger.Mod.Encoder
   alias Dagger.Mod.Scope
   alias Dagger.Mod.Registry
@@ -16,11 +18,9 @@ defmodule Dagger.Mod do
   end
 
   def invoke(dag, module) do
-    fn_call = Dagger.Client.current_function_call(dag)
-
-    with {:ok, scope} <- Scope.from_fn_call(fn_call),
+    with {:ok, scope} <- current_scope(dag),
          {:ok, json} <- invoke(dag, module, scope) do
-      Dagger.FunctionCall.return_value(fn_call, json)
+      return_value(dag, json)
     else
       {:error, error} ->
         IO.puts(:stderr, format_error(error))
@@ -64,6 +64,34 @@ defmodule Dagger.Mod do
     return_type = fun_def.return
 
     execute_function(module, fun_name, args, return_type)
+  end
+
+  # The call being served, in one round-trip. The arguments are selected inline
+  # rather than by id so that the whole scope - the parent, the function name
+  # and every argument - arrives with the response instead of costing a query
+  # apiece.
+  defp current_scope(dag) do
+    query_builder =
+      dag.query_builder
+      |> QB.select("currentFunctionCall")
+      |> QB.select_fields(["parentName", "name", "parent", {"inputArgs", ["name", "value"]}])
+
+    with {:ok, fn_call} <- Client.execute(dag.client, query_builder) do
+      {:ok, Scope.from_fn_call(fn_call)}
+    end
+  end
+
+  # `returnValue` is a `Void`, so there is nothing to unwrap from the response.
+  defp return_value(dag, json) do
+    query_builder =
+      dag.query_builder
+      |> QB.select("currentFunctionCall")
+      |> QB.select("returnValue", value: json)
+
+    case Client.execute(dag.client, query_builder) do
+      {:ok, _} -> :ok
+      error -> error
+    end
   end
 
   defp execute_function(module, fun_name, args, return_type) do
