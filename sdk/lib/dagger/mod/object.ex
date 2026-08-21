@@ -78,8 +78,8 @@ defmodule Dagger.Mod.Object do
 
   | Option | Value | Description |
   | ------ | ----- | ----------- |
-  | `:check` | flag | Discover and run this function with `dagger check`. |
-  | `:generate` | flag | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. |
+  | `:check` | flag | Discover and run this function with `dagger check`. Takes no required arguments. |
+  | `:generate` | flag | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. Returns `Dagger.Changeset.t()` and takes no required arguments. |
   | `cache:` | `:default` | Cache the result with the engine default policy. |
   | `cache:` | `:never` | Never cache the result. |
   | `cache:` | `:per_session` | Cache the result for the duration of a session. |
@@ -345,10 +345,20 @@ defmodule Dagger.Mod.Object do
       function fails the check when it raises, or when it returns a container
       whose last command exits non-zero.
 
+      A check must be callable with no arguments, because `dagger check` runs
+      it on its own.
+
     * `:generate` - register this function as a generator, run by
       `dagger generate`. Generators also run as part of `dagger check` unless
       it is given `--no-generate`. A function declared with both `:check` and
       `:generate` runs once, as a check.
+
+      A generator must return `Dagger.Changeset.t()` and, like a check, be
+      callable with no arguments.
+
+  An argument does not count against "no arguments" when the engine can supply
+  it: one carrying a `:default` or a `:default_path`, or typed as optional
+  (`type | nil`). The object itself, taken as `self`, never counts.
 
   ## Options
 
@@ -364,8 +374,9 @@ defmodule Dagger.Mod.Object do
       value outside 1 second to 7 days when the module is served.
 
   Both flags and options are validated when the module is compiled, so an
-  unknown option, a bad cache policy or a malformed duration raises an
-  `ArgumentError` pointing at the `defn` that declared it.
+  unknown option, a bad cache policy, a malformed duration or a flag whose
+  contract the signature breaks raises an `ArgumentError` pointing at the
+  `defn` that declared it.
 
   Neither `:check` nor `:generate` can be used on `init`, which declares the
   object constructor rather than a callable function.
@@ -382,6 +393,7 @@ defmodule Dagger.Mod.Object do
     arg_defs = compile_args(args)
     return_def = compile_typespec!(return)
     fun_opts = Options.normalize!(opts, name)
+    :ok = Options.validate_signature!(fun_opts, name, arg_defs, return_def)
 
     quote do
       @function {unquote(name),
