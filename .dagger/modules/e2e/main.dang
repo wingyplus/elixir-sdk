@@ -201,6 +201,71 @@ type E2e {
   }
 
   """
+  A failing function reaches the caller as an error, not as an opaque exit.
+
+  Every assertion below spells the `Error: ` prefix out: before the module
+  served its failures through `FunctionCall.returnError`, the CLI reported the
+  module process exiting (`call function "...": exit code: 1`) and the real
+  message showed up only as scraped stdout underneath it.
+  """
+  pub returnErrorCheck(ws: Workspace!): Void @check {
+    let errors = fixture(ws, "errors")
+
+    let returned = errors.tryCall(["return-error"])
+    returned.assertFailure
+    assert(
+      returned.output.contains("Error: cannot find the potato"),
+      "a returned error should reach the caller as its own message:\n" + returned.output,
+    )
+
+    let raised = errors.tryCall(["raise-error"])
+    raised.assertFailure
+    assert(
+      raised.output.contains("Error: RuntimeError: the potato exploded"),
+      "a raised exception should reach the caller with its type:\n" + raised.output,
+    )
+
+    let thrown = errors.tryCall(["throw-error"])
+    thrown.assertFailure
+    assert(
+      thrown.output.contains("Error: ** (throw) :no_potato"),
+      "a throw should reach the caller as an error too:\n" + thrown.output,
+    )
+  }
+
+  """
+  An API error keeps its extensions across the module boundary.
+
+  A failed exec is the case that matters: its `cmd`, `exitCode`, `stdout` and
+  `stderr` live in the extensions of the API error, so they only reach the
+  caller if the module hands them back on the `Dagger.Error` it returns.
+  """
+  pub errorExtensionsCheck(ws: Workspace!): Void @check {
+    let errors = fixture(ws, "errors")
+
+    let failed = errors.tryCall(["exec-error"])
+    failed.assertFailure
+    assert(
+      failed.output.contains("Error: input: container.from.withExec.stdout exit code: 3"),
+      "a nested exec error should surface as itself, not as the module exiting:\n" + failed.output,
+    )
+
+    # The shape the extensions are decoded back into, which is what the module
+    # merges into the error it returns. Asserted with `contains` rather than
+    # `assertJsonString` because the expected value holds `>` and `&`, which
+    # `toJSON` escapes and the CLI's own JSON output does not.
+    let details = errors.call(["exec-error-details"]).stdout
+    assert(
+      details.contains("cmd=sh -c echo to-stdout; echo to-stderr >&2; exit 3"),
+      "an ExecError should carry the cmd of the failed exec, got: " + details,
+    )
+    assert(
+      details.contains("exitCode=3 stdout=to-stdout stderr=to-stderr"),
+      "an ExecError should carry the exit code and streams of the failed exec, got: " + details,
+    )
+  }
+
+  """
   A module works with the `Req` GraphQL client adapter.
   """
   pub reqAdapterCheck(ws: Workspace!): Void @check {
