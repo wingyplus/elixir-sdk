@@ -434,6 +434,134 @@ defmodule Dagger.Mod.ObjectTest do
       end
     end
 
+    test "a generator must return a changeset" do
+      assert_raise ArgumentError,
+                   ~r/`defn gen` is declared :generate, so it must return `Dagger\.Changeset\.t\(\)`, got: `Dagger\.Void\.t\(\)`/,
+                   fn ->
+                     defmodule GenerateReturnsVoid do
+                       use Dagger.Mod.Object, name: "GenerateReturnsVoid"
+
+                       defn gen() :: Dagger.Void.t(), :generate do
+                         :ok
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/`defn gen` is declared :generate, so it must return `Dagger\.Changeset\.t\(\)`, got: `String\.t\(\)`/,
+                   fn ->
+                     defmodule GenerateReturnsString do
+                       use Dagger.Mod.Object, name: "GenerateReturnsString"
+
+                       defn gen() :: String.t(), :generate do
+                         "nope"
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/`defn gen` is declared :generate, so it must return `Dagger\.Changeset\.t\(\)`, got: `\[Dagger\.Changeset\.t\(\)\]`/,
+                   fn ->
+                     defmodule GenerateReturnsList do
+                       use Dagger.Mod.Object, name: "GenerateReturnsList"
+
+                       defn gen() :: [Dagger.Changeset.t()], :generate do
+                         []
+                       end
+                     end
+                   end
+    end
+
+    test "a generator return type must not be optional" do
+      assert_raise ArgumentError,
+                   ~r/the return type of `defn gen` must not be optional because it is declared :generate/,
+                   fn ->
+                     defmodule GenerateReturnsOptional do
+                       use Dagger.Mod.Object, name: "GenerateReturnsOptional"
+
+                       defn gen() :: Dagger.Changeset.t() | nil, :generate do
+                         nil
+                       end
+                     end
+                   end
+    end
+
+    test "a check or a generator cannot take a required argument" do
+      assert_raise ArgumentError,
+                   ~r/`defn lint` is declared :check, so it must be callable with no arguments, but `name` is required/,
+                   fn ->
+                     defmodule CheckWithRequiredArg do
+                       use Dagger.Mod.Object, name: "CheckWithRequiredArg"
+
+                       defn lint(name: String.t()) :: Dagger.Void.t(), :check do
+                         _ = name
+                         :ok
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/`defn gen` is declared :generate, so it must be callable with no arguments, but `name` is required/,
+                   fn ->
+                     defmodule GenerateWithRequiredArg do
+                       use Dagger.Mod.Object, name: "GenerateWithRequiredArg"
+
+                       defn gen(name: String.t()) :: Dagger.Changeset.t(), :generate do
+                         _ = name
+                         dag() |> Dagger.Client.changeset()
+                       end
+                     end
+                   end
+
+      # A `Dagger.Directory.t()` without a `:default_path` is still required.
+      assert_raise ArgumentError,
+                   ~r/`defn gen` is declared :generate, so it must be callable with no arguments, but `dir` is required/,
+                   fn ->
+                     defmodule GenerateWithRequiredDirArg do
+                       use Dagger.Mod.Object, name: "GenerateWithRequiredDirArg"
+
+                       defn gen(dir: Dagger.Directory.t()) :: Dagger.Changeset.t(), :generate do
+                         _ = dir
+                         dag() |> Dagger.Client.changeset()
+                       end
+                     end
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/but `name`, `dir` are required/,
+                   fn ->
+                     defmodule CheckWithTwoRequiredArgs do
+                       use Dagger.Mod.Object, name: "CheckWithTwoRequiredArgs"
+
+                       defn lint(name: String.t(), dir: Dagger.Directory.t()) ::
+                              Dagger.Void.t(),
+                            :check do
+                         _ = {name, dir}
+                         :ok
+                       end
+                     end
+                   end
+    end
+
+    test "signatures a check or a generator accepts" do
+      assert [
+               check_with_self: %FunctionDef{self: true, args: [], check: true},
+               generate_with_self: %FunctionDef{
+                 self: true,
+                 args: [],
+                 return: Dagger.Changeset,
+                 generate: true
+               },
+               check_with_default: %FunctionDef{check: true},
+               check_with_default_path: %FunctionDef{check: true},
+               check_with_optional: %FunctionDef{check: true},
+               generate_with_default_path: %FunctionDef{
+                 return: Dagger.Changeset,
+                 generate: true
+               }
+             ] = FlagSignatures.__object__(:functions)
+    end
+
     test "options are optional and default to off" do
       assert Dagger.Mod.Object.Options.normalize!([], :f) ==
                [check: false, generate: false, cache: nil]

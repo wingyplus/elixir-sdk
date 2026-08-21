@@ -187,6 +187,51 @@ defmodule GenerateOption do
   end
 end
 
+# The signatures `:check` and `:generate` accept. The rejected ones cannot
+# live here: they raise while this file compiles, so they are declared inline
+# in the test instead.
+defmodule FlagSignatures do
+  @moduledoc false
+  use Dagger.Mod.Object, name: "FlagSignatures"
+
+  object do
+  end
+
+  # `self` is the object, not something the caller supplies.
+  defn check_with_self(_self) :: Dagger.Void.t(), :check do
+    :ok
+  end
+
+  defn generate_with_self(_self) :: Dagger.Changeset.t(), :generate do
+    dag() |> Dagger.Client.changeset()
+  end
+
+  # The engine fills these in, so none of them is required.
+  defn check_with_default(name: {String.t(), default: "check"}) :: Dagger.Void.t(), :check do
+    _ = name
+    :ok
+  end
+
+  defn check_with_default_path(dir: {Dagger.Directory.t(), default_path: "/"}) ::
+         Dagger.Void.t(),
+       :check do
+    _ = dir
+    :ok
+  end
+
+  defn check_with_optional(name: String.t() | nil) :: Dagger.Void.t(), :check do
+    _ = name
+    :ok
+  end
+
+  defn generate_with_default_path(dir: {Dagger.Directory.t(), default_path: "/"}) ::
+         Dagger.Changeset.t(),
+       :generate do
+    _ = dir
+    dag() |> Dagger.Client.changeset()
+  end
+end
+
 defmodule CombinedOptions do
   @moduledoc false
   use Dagger.Mod.Object, name: "CombinedOptions"

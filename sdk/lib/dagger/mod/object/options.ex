@@ -103,6 +103,94 @@ defmodule Dagger.Mod.Object.Options do
             ~s|Expected one of #{inspect(@policies)} or `{:ttl, "30s"}`|
   end
 
+  @doc """
+  Validate the flags against the signature they were declared on.
+
+  `arg_defs` is the compiled argument list (already stripped of `self`) and
+  `return_def` the compiled return type, both as produced by
+  `Dagger.Mod.Object.defn/3`.
+
+  Raises `ArgumentError` when a flag's contract is violated:
+
+    * `:generate` must return the core `Changeset!` type. The engine enforces
+      this in `validateGeneratorFunction` when the module is loaded; catching
+      it here turns a run-time failure into a compile error.
+
+    * `:generate` and `:check` must be callable with no caller-supplied
+      arguments. `dagger check` and `dagger generate` discover and run these
+      functions on their own, so there is nobody to supply a required
+      argument.
+  """
+  @spec validate_signature!(keyword(), atom(), keyword(), term()) :: :ok
+  def validate_signature!(opts, fun_name, arg_defs, return_def) when is_atom(fun_name) do
+    if opts[:generate] do
+      validate_generator_return!(return_def, fun_name)
+    end
+
+    Enum.each(@flags, fn flag ->
+      if opts[flag] do
+        validate_no_required_args!(arg_defs, flag, fun_name)
+      end
+    end)
+
+    :ok
+  end
+
+  defp validate_generator_return!(Dagger.Changeset, _fun_name), do: :ok
+
+  defp validate_generator_return!({:optional, Dagger.Changeset}, fun_name) do
+    raise ArgumentError,
+          "the return type of `defn #{fun_name}` must not be optional because it is " <>
+            "declared :generate. Write it as `Dagger.Changeset.t()`, not " <>
+            "`Dagger.Changeset.t() | nil`"
+  end
+
+  defp validate_generator_return!(return_def, fun_name) do
+    raise ArgumentError,
+          "`defn #{fun_name}` is declared :generate, so it must return " <>
+            "`Dagger.Changeset.t()`, got: `#{describe_type(return_def)}`"
+  end
+
+  # A required argument is one the caller has to supply: not optional, and
+  # with no value the engine can fill in. This mirrors `argRequired` in the
+  # engine (`core/module.go`).
+  #
+  # `self` never reaches here — it is stripped while compiling the argument
+  # list — so a function that only takes the object itself is fine.
+  defp validate_no_required_args!(arg_defs, flag, fun_name) do
+    case Enum.filter(arg_defs, &required?/1) do
+      [] ->
+        :ok
+
+      required ->
+        names = required |> Enum.map_join(", ", fn {name, _} -> "`#{name}`" end)
+
+        raise ArgumentError,
+              "`defn #{fun_name}` is declared #{inspect(flag)}, so it must be callable " <>
+                "with no arguments, but #{names} #{verb(required)} required. " <>
+                "Give the argument a `:default` or a `:default_path`, or type it as " <>
+                "optional (`type | nil`)"
+    end
+  end
+
+  defp required?({_name, meta}) do
+    not match?({:optional, _}, meta[:type]) and
+      is_nil(meta[:default]) and is_nil(meta[:default_path])
+  end
+
+  defp verb([_]), do: "is"
+  defp verb(_), do: "are"
+
+  # Render a compiled type back into something close to what was written, for
+  # error messages.
+  defp describe_type(:integer), do: "integer()"
+  defp describe_type(:float), do: "float()"
+  defp describe_type(:boolean), do: "boolean()"
+  defp describe_type(:string), do: "String.t()"
+  defp describe_type({:list, type}), do: "[#{describe_type(type)}]"
+  defp describe_type({:optional, type}), do: "#{describe_type(type)} | nil"
+  defp describe_type(module) when is_atom(module), do: "#{inspect(module)}.t()"
+
   # `init` becomes the object constructor, where neither flag has any meaning.
   defp reject_unsupported!(opts, :init) do
     Enum.each(@flags, fn flag ->
