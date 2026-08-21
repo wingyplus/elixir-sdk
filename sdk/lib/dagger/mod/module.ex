@@ -47,7 +47,8 @@ defmodule Dagger.Mod.Module do
 
   defp get_optional(module) do
     []
-    |> maybe_put_optional(Dagger.Mod.Object.get_module_deprecated(module))
+    |> maybe_put_optional({:description, Object.get_module_doc(module)})
+    |> maybe_put_optional(Object.get_module_deprecated(module))
   end
 
   defp maybe_put_optional(opts, nil), do: opts
@@ -64,7 +65,9 @@ defmodule Dagger.Mod.Module do
     type_def =
       dag
       |> Dagger.Client.type_def()
-      |> Dagger.TypeDef.with_enum(Helper.camelize(mod_name))
+      |> Dagger.TypeDef.with_enum(Helper.camelize(mod_name),
+        description: Object.get_module_doc(module)
+      )
 
     keys =
       case Kernel.function_exported?(module, :__enum__, 1) do

@@ -1,5 +1,7 @@
 defmodule SimpleEnum do
-  @moduledoc false
+  @moduledoc """
+  A severity level.
+  """
   use Dagger.Mod.Enum, name: "SimpleEnum", values: [:unknown, :low, :high]
 end
 
