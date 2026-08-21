@@ -134,6 +134,26 @@ defmodule Dagger.Mod.Object do
   The supported argument options are `:doc`, `:default`, `:default_path`,
   `:ignore` and `:deprecated`.
 
+  ## Argument defaults
+
+  An argument that the engine may leave out is also optional to an Elixir
+  caller. An argument that declares a `:default` takes it as its Elixir
+  default, and an argument typed as optional (`type | nil`) defaults to `nil`:
+
+      defn echo(message: String.t() | nil, greeting: {String.t(), default: "Hello"}) ::
+             String.t() do
+        # compiles to `def echo(message \\\\ nil, greeting \\\\ "Hello")`
+        "\#{greeting}, \#{message}"
+      end
+
+      echo()
+      #=> "Hello, "
+
+  Defaults follow Elixir's own rules, so an optional argument declared before a
+  required one shifts the meaning of the shorter arities - `defn f(a: String.t()
+  | nil, b: String.t())` compiles to `def f(a \\\\ nil, b)`, whose `f/1` takes
+  `b`. Declare required arguments first to avoid it.
+
   ## Deprecation
 
   A module, function or argument can be marked as deprecated. Modules and

@@ -21,6 +21,10 @@ defmodule Defaults do
     echo_value()
   end
 
+  defn call_echo_else() :: String.t() do
+    echo_else()
+  end
+
   defn file_name(file: {Dagger.File.t(), default_path: "dagger-module.toml"}) :: String.t() do
     Dagger.File.name(file)
   end

@@ -59,6 +59,7 @@ type E2e {
     defaults.assertJsonString(["echo-value"], "foo", "an omitted argument should fall back to its default")
     defaults.assertJsonString(["echo-value", "--value=bar"], "bar", "a passed argument should override its default")
     defaults.assertJsonString(["call-echo-value"], "foo", "a default should also apply when the function is called from Elixir")
+    defaults.assertJsonString(["call-echo-else"], "default value if null", "a nullable argument should default to null when the function is called from Elixir")
   }
 
   """
