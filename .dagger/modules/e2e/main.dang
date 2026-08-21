@@ -156,6 +156,29 @@ type E2e {
   }
 
   """
+  The client API behaves the same against freshly generated bindings.
+
+  One check per test ported from `sdk/test/dagger/client_test.exs`. Like the
+  other fixtures this one is ungenerated, so the bindings under test are the
+  ones the runtime generates from the engine's introspection schema — the checks
+  cover code generation in a real environment as well as the client itself.
+  """
+  pub clientApiCheck(ws: Workspace!): Void @check {
+    let source = ws.moduleSource("/" + fixtureRoot + "/client-api")
+    let clientApi = ModuleRunner(
+      workspaceView: source.contextDirectory,
+      modulePath: source.sourceRootSubpath,
+      daggerCliVersion: daggerCliVersion,
+      # This fixture runs 21 checks in a single `dagger check`, among them a git
+      # clone of dagger/dagger and two image builds. The 10m the other fixtures
+      # get is sized for a handful of calls.
+      timeout: "20m",
+    )
+
+    clientApi.check(["*"]).assertSuccess
+  }
+
+  """
   Functions declared with the `:check` option are discovered and run as checks.
   """
   pub checkFunctionsCheck(ws: Workspace!): Void @check {
