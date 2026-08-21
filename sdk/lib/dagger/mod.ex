@@ -4,6 +4,7 @@ defmodule Dagger.Mod do
   alias Dagger.Core.Client
   alias Dagger.Core.QueryBuilder, as: QB
   alias Dagger.Mod.Encoder
+  alias Dagger.Mod.ErrorReport
   alias Dagger.Mod.Scope
   alias Dagger.Mod.Registry
 
@@ -18,13 +19,28 @@ defmodule Dagger.Mod do
   end
 
   def invoke(dag, module) do
-    with {:ok, scope} <- current_scope(dag),
-         {:ok, json} <- invoke(dag, module, scope) do
-      return_value(dag, json)
-    else
-      {:error, error} ->
-        IO.puts(:stderr, format_error(error))
-        exit({:shutdown, 2})
+    # A module function fails in three ways - it returns `{:error, reason}`, it
+    # raises, or it throws/exits - and all three have to reach the engine as a
+    # `Dagger.Error`. Only `rescue`/`catch` can see a stacktrace, so the whole
+    # dispatch is wrapped; the reporting itself happens outside the `try` so
+    # that the exit below is not caught by it.
+    result =
+      try do
+        with {:ok, scope} <- current_scope(dag),
+             {:ok, json} <- invoke(dag, module, scope) do
+          return_value(dag, json)
+        else
+          {:error, reason} -> {:failed, :error, reason, nil}
+        end
+      rescue
+        exception -> {:failed, :error, exception, __STACKTRACE__}
+      catch
+        kind, reason -> {:failed, kind, reason, __STACKTRACE__}
+      end
+
+    case result do
+      {:failed, kind, reason, stacktrace} -> fail(dag, kind, reason, stacktrace)
+      otherwise -> otherwise
     end
   after
     Dagger.Global.close()
@@ -102,7 +118,33 @@ defmodule Dagger.Mod do
     end
   end
 
-  defp format_error(%{__exception__: true} = exception), do: Exception.message(exception)
-  defp format_error(error) when is_binary(error) or is_atom(error), do: error
-  defp format_error(error), do: inspect(error)
+  # Hand the failure to the engine, then exit non-zero the way the Go, Python
+  # and TypeScript SDKs do - `returnError` records the error, it does not end
+  # the call.
+  defp fail(dag, kind, reason, stacktrace) do
+    case report(dag, kind, reason, stacktrace) do
+      :ok ->
+        # A crash keeps its stacktrace on the function's stderr as well: the
+        # values of a `Dagger.Error` are not rendered by every frontend, and a
+        # trace is what makes the failure debuggable.
+        if stacktrace, do: IO.puts(:stderr, Exception.format(kind, reason, stacktrace))
+
+      {:error, report_error} ->
+        {message, _values} = ErrorReport.describe(kind, reason, stacktrace)
+        {report_message, _values} = ErrorReport.describe(:error, report_error)
+        IO.puts(:stderr, "failed to return error: #{report_message}")
+        IO.puts(:stderr, "original error: #{message}")
+    end
+
+    exit({:shutdown, 2})
+  end
+
+  # Reporting talks to the engine, so it can fail - or raise, when the session
+  # is already gone - on its own. Either way the original failure is what the
+  # caller needs to hear about.
+  defp report(dag, kind, reason, stacktrace) do
+    ErrorReport.report(dag, kind, reason, stacktrace)
+  rescue
+    exception -> {:error, exception}
+  end
 end
