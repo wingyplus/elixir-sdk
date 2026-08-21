@@ -705,7 +705,7 @@ defmodule Dagger.Mod.ObjectTest do
                    end
 
       assert_raise ArgumentError,
-                   ~r/`defn compose` is declared :agent, so it may only require the base `Dagger\.LLM\.t\(\)` argument, but `prompt` is also required/,
+                   ~r/`defn compose` is declared :agent, but declares the required argument `prompt`/,
                    fn ->
                      defmodule AgentWithExtraRequiredArg do
                        use Dagger.Mod.Object, name: "AgentWithExtraRequiredArg"
@@ -721,7 +721,7 @@ defmodule Dagger.Mod.ObjectTest do
       # The base is exempt wherever it sits, so the other required argument is
       # the one reported.
       assert_raise ArgumentError,
-                   ~r/but `prompt` is also required/,
+                   ~r/declares the required argument `prompt`/,
                    fn ->
                      defmodule AgentWithLeadingRequiredArg do
                        use Dagger.Mod.Object, name: "AgentWithLeadingRequiredArg"
@@ -734,9 +734,22 @@ defmodule Dagger.Mod.ObjectTest do
                      end
                    end
 
+      # With no base among them, the first required argument is the one reported.
+      assert_raise ArgumentError,
+                   ~r/`defn compose` is declared :agent, but declares the required argument `prompt`/,
+                   fn ->
+                     defmodule AgentWithNoLLMArgAtAll do
+                       use Dagger.Mod.Object, name: "AgentWithNoLLMArgAtAll"
+
+                       defn compose(prompt: String.t()) :: Dagger.LLM.t(), :agent do
+                         dag() |> Dagger.Client.llm() |> Dagger.LLM.with_prompt(prompt)
+                       end
+                     end
+                   end
+
       # Only one `LLM` is the base; a second is just another required argument.
       assert_raise ArgumentError,
-                   ~r/but `other` is also required/,
+                   ~r/declares the required argument `other`/,
                    fn ->
                      defmodule AgentWithTwoLLMArgs do
                        use Dagger.Mod.Object, name: "AgentWithTwoLLMArgs"

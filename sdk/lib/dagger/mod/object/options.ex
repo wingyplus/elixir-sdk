@@ -210,10 +210,10 @@ defmodule Dagger.Mod.Object.Options do
   end
 
   defp extra_agent_arg(fun_name, name) do
-    "`defn #{fun_name}` is declared :agent, so it may only require the base " <>
-      "`Dagger.LLM.t()` argument, but `#{name}` is also required. " <>
-      "Give the argument a `:default` or a `:default_path`, or type it as " <>
-      "optional (`type | nil`)"
+    "`defn #{fun_name}` is declared :agent, but declares the required argument " <>
+      "`#{name}`. An :agent function may only require a single `Dagger.LLM.t()` " <>
+      "argument, the base the compose fold supplies. Give the argument a " <>
+      "`:default` or a `:default_path`, or type it as optional (`type | nil`)"
   end
 
   # A required argument is one the caller has to supply: not optional, and
