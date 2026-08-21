@@ -324,6 +324,45 @@ defmodule Dagger.Mod.ModuleTest do
       assert {:ok, "UNKNOWN"} = Dagger.EnumValueTypeDef.name(unknown)
     end
 
+    test "custom enum member value", %{dag: dag} do
+      enum_type_def =
+        dag
+        |> Module.define_enum(EnumAliasValue)
+        |> Dagger.TypeDef.as_enum()
+
+      assert {:ok, [unknown, low]} = Dagger.EnumTypeDef.members(enum_type_def)
+
+      # The engine names a member by its key and hands that name back to the
+      # module at call time; the declared value rides along as `value`, which is
+      # what a dependent SDK generates its constant from.
+      assert {:ok, "UNKNOWN"} = Dagger.EnumValueTypeDef.name(unknown)
+      assert {:ok, "unknown"} = Dagger.EnumValueTypeDef.value(unknown)
+      assert {:ok, "LOW"} = Dagger.EnumValueTypeDef.name(low)
+      assert {:ok, "low"} = Dagger.EnumValueTypeDef.value(low)
+      assert {:ok, "Low severity"} = Dagger.EnumValueTypeDef.description(low)
+    end
+
+    test "core enum members keep their key as their value", %{dag: dag} do
+      # `Dagger.NetworkProtocol` comes from codegen: it has no `__enum__/2`, so
+      # its members are read off its typespec and name themselves.
+      enum_type_def =
+        dag
+        |> Module.define_enum(Dagger.NetworkProtocol)
+        |> Dagger.TypeDef.as_enum()
+
+      assert {:ok, members} = Dagger.EnumTypeDef.members(enum_type_def)
+
+      names_and_values =
+        Enum.map(members, fn member ->
+          {:ok, name} = Dagger.EnumValueTypeDef.name(member)
+          {:ok, value} = Dagger.EnumValueTypeDef.value(member)
+          {name, value}
+        end)
+
+      assert {"TCP", "TCP"} in names_and_values
+      assert {"UDP", "UDP"} in names_and_values
+    end
+
     test "enum arguments on object-returning functions get registered", %{dag: dag} do
       module = Module.define(dag, EnumOnObjectReturn)
 

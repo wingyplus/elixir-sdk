@@ -34,6 +34,18 @@ defmodule Dagger.Mod.EncoderTest do
                Encoder.validate_and_encode(%ObjectField{name: "john"}, ObjectField)
     end
 
+    test "encode enum" do
+      # The engine looks a returned member up by its name, which is its key.
+      assert {:ok, "\"unknown\""} = Encoder.validate_and_encode(:unknown, SimpleEnum)
+      assert {:ok, "\"UNKNOWN\""} = Encoder.validate_and_encode(:UNKNOWN, EnumAliasValue)
+      assert {:ok, "\"TCP\""} = Encoder.validate_and_encode(:TCP, Dagger.NetworkProtocol)
+    end
+
+    test "encode enum error" do
+      assert {:error, %Dagger.Mod.TypeMismatchError{}} =
+               Encoder.validate_and_encode(:nope, EnumAliasValue)
+    end
+
     test "encode error" do
       assert {:error, _} = Encoder.validate_and_encode(1, :string)
     end
