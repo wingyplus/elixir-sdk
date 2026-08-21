@@ -2,9 +2,15 @@ defmodule Dagger.Core.QueryBuilder do
   @moduledoc false
 
   @typedoc """
+  A field inside a leaf field set: a name, or a name and the fields to select
+  below it.
+  """
+  @type field :: String.t() | {String.t(), [field()]}
+
+  @typedoc """
   A single field name, or the set of leaf fields a query ends with.
   """
-  @type name :: String.t() | [String.t()]
+  @type name :: String.t() | [field()]
 
   @typedoc """
   Arguments to a field, keyed by the schema's own names.
@@ -40,18 +46,39 @@ defmodule Dagger.Core.QueryBuilder do
   @doc """
   Select a set of leaf fields, `envVariables { id name value }` say.
 
+  A field that is not itself a leaf carries the fields to select below it as
+  `{name, fields}`, nested as deeply as the schema needs:
+
+      select_fields(selection, ["a", "b", {"c", ["d"]}])
+      #=> a b c{d}
+
   This is where a query ends: a node holding more than one field has no single
   field for a further selection to hang from, so `select/3`, `select_fields/2`
-  and `inline_fragment/2` all refuse to extend one. The response for the
-  selection *above* it is what `Dagger.Core.Client.execute/2` returns - a map of
-  the fields, or a list of such maps - so a leaf set contributes nothing to
-  `path/1`.
+  and `inline_fragment/2` all refuse to extend one - the nesting a set needs is
+  written into the set itself. The response for the selection *above* it is what
+  `Dagger.Core.Client.execute/2` returns - a map of the fields, or a list of such
+  maps - so a leaf set contributes nothing to `path/1`.
   """
   def select_fields(%__MODULE__{} = selection, [_ | _] = names) do
     %__MODULE__{
-      name: names,
+      name: Enum.map(names, &valid_field!/1),
       prev: selectable!(selection)
     }
+  end
+
+  # A malformed field is worth catching here, where the caller wrote it, rather
+  # than in `build/1`: an unnamed field or an empty nested set is not a query the
+  # engine can parse, and a bad element would otherwise surface as a
+  # FunctionClauseError a long way from where it came from.
+  defp valid_field!(name) when is_binary(name), do: name
+
+  defp valid_field!({name, [_ | _] = nested}) when is_binary(name),
+    do: {name, Enum.map(nested, &valid_field!/1)}
+
+  defp valid_field!(field) do
+    raise ArgumentError,
+          "expected a field name or a {name, fields} pair with at least one field, " <>
+            "got: #{inspect(field)}"
   end
 
   def inline_fragment(%__MODULE__{} = selection, type_name) when is_binary(type_name) do
@@ -98,8 +125,13 @@ defmodule Dagger.Core.QueryBuilder do
     )
   end
 
-  defp build_name(names) when is_list(names), do: Enum.intersperse(names, ?\s)
+  defp build_name(names) when is_list(names), do: build_field_set(names)
   defp build_name(name), do: name
+
+  defp build_field_set(names), do: Enum.map_intersperse(names, ?\s, &build_field/1)
+
+  defp build_field({name, nested}), do: [name, ?{, build_field_set(nested), ?}]
+  defp build_field(name), do: name
 
   defp build_args([], _pattern), do: []
 
