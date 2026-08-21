@@ -2,12 +2,22 @@ defmodule Dagger.Mod.Enum do
   @moduledoc """
   Declare a module as an enum type.
 
-  A member is spelled `key`, `key: [doc: ...]`, `key: value` or
-  `key: {value, doc: ...}`. The key is the member's identity: it is the atom the
+  A member is spelled `key`, `key: options`, `key: value` or
+  `key: {value, options}`. The key is the member's identity: it is the atom the
   Elixir side works with, the name the engine registers the member under, and
   the string the engine hands back when the member is passed to a function. The
   value is the wire value the member declares - what a dependent SDK generates
   its constant from - and defaults to the key.
+
+  A member carrying options accepts `:doc` and `:deprecated`:
+
+      use Dagger.Mod.Enum,
+        name: "Severity",
+        values: [
+          low: [doc: "Low severity."],
+          medium: [deprecated: "Use `high` instead."],
+          high: {"HIGH", doc: "High severity.", deprecated: "Use `critical` instead."}
+        ]
   """
 
   defmacro __using__(opts) do
@@ -40,6 +50,7 @@ defmodule Dagger.Mod.Enum do
     key = key(member)
     value = value(member)
     doc = doc(member)
+    deprecated = deprecated(member)
     name = Atom.to_string(key)
     fname = name |> String.downcase() |> String.to_atom()
 
@@ -47,6 +58,7 @@ defmodule Dagger.Mod.Enum do
       def __enum__(:value, unquote(key)), do: unquote(value)
       def __enum__(:key, unquote(name)), do: unquote(key)
       def __enum__(:doc, unquote(key)), do: unquote(doc)
+      def __enum__(:deprecated, unquote(key)), do: unquote(deprecated)
 
       def unquote(fname)(), do: unquote(key)
       def from_string(unquote(name)), do: unquote(key)
@@ -67,6 +79,13 @@ defmodule Dagger.Mod.Enum do
   defp doc({_key, options}) when is_list(options), do: options[:doc]
   defp doc({_key, value}) when is_binary(value), do: nil
   defp doc({_key, {value, options}}) when is_binary(value) and is_list(options), do: options[:doc]
+
+  defp deprecated(key) when is_atom(key), do: nil
+  defp deprecated({_key, options}) when is_list(options), do: options[:deprecated]
+  defp deprecated({_key, value}) when is_binary(value), do: nil
+
+  defp deprecated({_key, {value, options}}) when is_binary(value) and is_list(options),
+    do: options[:deprecated]
 
   @doc """
   The member keys of the enum `module`, in declaration order.
@@ -99,6 +118,17 @@ defmodule Dagger.Mod.Enum do
   def get_key_description(module, key) do
     if custom_enum?(module) do
       module.__enum__(:doc, key)
+    else
+      nil
+    end
+  end
+
+  @doc """
+  The deprecation reason attached to the member `key`, if any.
+  """
+  def get_key_deprecated(module, key) do
+    if custom_enum?(module) do
+      module.__enum__(:deprecated, key)
     else
       nil
     end

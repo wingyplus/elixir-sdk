@@ -342,6 +342,25 @@ defmodule Dagger.Mod.ModuleTest do
       assert {:ok, "Low severity"} = Dagger.EnumValueTypeDef.description(low)
     end
 
+    test "deprecated enum member", %{dag: dag} do
+      enum_type_def =
+        dag
+        |> Module.define_enum(EnumWithDeprecatedMember)
+        |> Dagger.TypeDef.as_enum()
+
+      assert {:ok, [high, low, medium]} = Dagger.EnumTypeDef.members(enum_type_def)
+
+      assert {:ok, "HIGH"} = Dagger.EnumValueTypeDef.name(high)
+      assert {:ok, nil} = Dagger.EnumValueTypeDef.deprecated(high)
+
+      assert {:ok, "LOW"} = Dagger.EnumValueTypeDef.name(low)
+      assert {:ok, "Use `high` instead."} = Dagger.EnumValueTypeDef.deprecated(low)
+
+      assert {:ok, "MEDIUM"} = Dagger.EnumValueTypeDef.name(medium)
+      assert {:ok, "Medium severity"} = Dagger.EnumValueTypeDef.description(medium)
+      assert {:ok, "Use `high` instead."} = Dagger.EnumValueTypeDef.deprecated(medium)
+    end
+
     test "core enum members keep their key as their value", %{dag: dag} do
       # `Dagger.NetworkProtocol` comes from codegen: it has no `__enum__/2`, so
       # its members are read off its typespec and name themselves.
