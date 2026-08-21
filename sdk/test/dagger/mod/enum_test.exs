@@ -24,6 +24,22 @@ defmodule Dagger.Mod.EnumTest do
     assert_enum.(EnumWithOption)
   end
 
+  test "get value deprecation reason" do
+    assert Dagger.Mod.Enum.get_key_deprecated(SimpleEnum, :high) == nil
+    assert Dagger.Mod.Enum.get_key_deprecated(EnumAliasValue, :UNKNOWN) == nil
+    assert Dagger.Mod.Enum.get_key_deprecated(EnumWithDeprecatedMember, :high) == nil
+
+    assert Dagger.Mod.Enum.get_key_deprecated(EnumWithDeprecatedMember, :low) ==
+             "Use `high` instead."
+
+    assert Dagger.Mod.Enum.get_key_deprecated(EnumWithDeprecatedMember, :medium) ==
+             "Use `high` instead."
+  end
+
+  test "a codegen enum has no deprecated member" do
+    assert Dagger.Mod.Enum.get_key_deprecated(Dagger.NetworkProtocol, :TCP) == nil
+  end
+
   test "alias key with value" do
     assert EnumAliasValue.__enum__(:value, :UNKNOWN) == "unknown"
     assert EnumAliasValue.__enum__(:value, :LOW) == "low"

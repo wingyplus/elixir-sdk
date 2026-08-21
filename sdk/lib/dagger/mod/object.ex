@@ -156,8 +156,8 @@ defmodule Dagger.Mod.Object do
 
   ## Deprecation
 
-  A module, function or argument can be marked as deprecated. Modules and
-  functions use the standard Elixir annotations:
+  A module, function, field, argument or enum member can be marked as
+  deprecated. Modules and functions use the standard Elixir annotations:
 
       @moduledoc deprecated: "Use `NewPotato` instead."
 
@@ -166,7 +166,18 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-  An argument uses the `:deprecated` argument option.
+  A field, an argument and an enum member each use their own `:deprecated`
+  option:
+
+      field(:name, String.t(), deprecated: "Use `:title` instead.")
+
+      defn echo(name: {String.t(), deprecated: "Use `title` instead."}) :: String.t() do
+        # ...
+      end
+
+      use Dagger.Mod.Enum,
+        name: "Severity",
+        values: [:high, low: [deprecated: "Use `high` instead."]]
   """
 
   @type function_name() :: atom()

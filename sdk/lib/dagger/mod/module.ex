@@ -74,6 +74,7 @@ defmodule Dagger.Mod.Module do
         []
         |> maybe_put_optional({:value, Dagger.Mod.Enum.get_key_value(module, key)})
         |> maybe_put_optional({:description, Dagger.Mod.Enum.get_key_description(module, key)})
+        |> maybe_put_optional({:deprecated, Dagger.Mod.Enum.get_key_deprecated(module, key)})
 
       Dagger.TypeDef.with_enum_member(tdef, Atom.to_string(key), opts)
     end)
