@@ -80,6 +80,8 @@ defmodule Dagger.Mod.Object do
   | ------ | ----- | ----------- |
   | `:check` | flag | Discover and run this function with `dagger check`. Takes no required arguments. |
   | `:generate` | flag | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. Returns `Dagger.Changeset.t()` and takes no required arguments. |
+  | `:up` | flag | Start the service this function returns with `dagger up`. Returns `Dagger.Service.t()` and takes no required arguments. |
+  | `:agent` | flag | Register this function as agent middleware, composed by `dagger agent`. Returns `Dagger.LLM.t()` and requires a single `Dagger.LLM.t()` argument, the base. |
   | `cache:` | `:default` | Cache the result with the engine default policy. |
   | `cache:` | `:never` | Never cache the result. |
   | `cache:` | `:per_session` | Cache the result for the duration of a session. |
@@ -107,7 +109,7 @@ defmodule Dagger.Mod.Object do
         end
       end
 
-  `:check` and `:generate` cannot be used on `init`.
+  No flag can be used on `init`.
 
   ## Declare fields
 
@@ -367,9 +369,23 @@ defmodule Dagger.Mod.Object do
       A generator must return `Dagger.Changeset.t()` and, like a check, be
       callable with no arguments.
 
+    * `:up` - start the service this function returns with `dagger up`.
+
+      An up function must return `Dagger.Service.t()` and be callable with no
+      arguments.
+
+    * `:agent` - register this function as agent middleware, discovered and
+      composed by `dagger agent`.
+
+      An agent must return `Dagger.LLM.t()` and require exactly one argument,
+      the base `Dagger.LLM.t()` the compose fold supplies. Any other argument
+      it declares has to be one the caller can leave out.
+
   An argument does not count against "no arguments" when the engine can supply
   it: one carrying a `:default` or a `:default_path`, or typed as optional
-  (`type | nil`). The object itself, taken as `self`, never counts.
+  (`type | nil`). The object itself, taken as `self`, never counts. The base an
+  `:agent` requires is the one exception: it is a required argument, and the
+  only one an agent may declare.
 
   ## Options
 
@@ -389,8 +405,8 @@ defmodule Dagger.Mod.Object do
   contract the signature breaks raises an `ArgumentError` pointing at the
   `defn` that declared it.
 
-  Neither `:check` nor `:generate` can be used on `init`, which declares the
-  object constructor rather than a callable function.
+  No flag can be used on `init`, which declares the object constructor rather
+  than a callable function.
   """
   defmacro defn(call, opts, do: block) do
     build(call, opts, block)
@@ -413,6 +429,8 @@ defmodule Dagger.Mod.Object do
                    cache_policy: unquote(fun_opts[:cache]),
                    check: unquote(fun_opts[:check]),
                    generate: unquote(fun_opts[:generate]),
+                   up: unquote(fun_opts[:up]),
+                   agent: unquote(fun_opts[:agent]),
                    args: unquote(arg_defs),
                    return: unquote(return_def)
                  }}
