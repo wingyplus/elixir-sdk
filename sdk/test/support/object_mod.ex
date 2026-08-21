@@ -348,3 +348,33 @@ defmodule EnumOnObjectReturn do
     %EnumReturnChild{}
   end
 end
+
+defmodule DocObjects.Child do
+  @moduledoc """
+  The child object documentation.
+  """
+
+  use Dagger.Mod.Object, name: "DocObjectsChild"
+
+  object do
+  end
+
+  defn hello() :: String.t() do
+    "Hello"
+  end
+end
+
+defmodule DocObjects do
+  @moduledoc """
+  The root object documentation.
+  """
+
+  use Dagger.Mod.Object, name: "DocObjects"
+
+  object do
+  end
+
+  defn child() :: DocObjects.Child.t() do
+    %DocObjects.Child{}
+  end
+end

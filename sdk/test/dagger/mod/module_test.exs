@@ -316,8 +316,8 @@ defmodule Dagger.Mod.ModuleTest do
 
       enum_type_def = type_def |> Dagger.TypeDef.as_enum()
 
-      Dagger.EnumTypeDef.description(enum_type_def)
-      Dagger.EnumTypeDef.name(enum_type_def)
+      assert {:ok, "A severity level."} = Dagger.EnumTypeDef.description(enum_type_def)
+      assert {:ok, "SimpleEnum"} = Dagger.EnumTypeDef.name(enum_type_def)
       {:ok, [unknown, low, high]} = Dagger.EnumTypeDef.members(enum_type_def)
       assert {:ok, "LOW"} = Dagger.EnumValueTypeDef.name(low)
       assert {:ok, "HIGH"} = Dagger.EnumValueTypeDef.name(high)
@@ -339,6 +339,41 @@ defmodule Dagger.Mod.ModuleTest do
         |> Enum.map(fn {:ok, name} -> name end)
 
       assert "SimpleEnum" in enum_names
+    end
+
+    test "object descriptions are registered", %{dag: dag} do
+      module = Module.define(dag, DocObjects)
+
+      assert {:ok, objects} = Dagger.Module.objects(module)
+
+      descriptions =
+        objects
+        |> Enum.map(&Dagger.TypeDef.as_object/1)
+        |> Map.new(fn object ->
+          {:ok, name} = Dagger.ObjectTypeDef.name(object)
+          {:ok, description} = Dagger.ObjectTypeDef.description(object)
+          {name, description}
+        end)
+
+      assert descriptions["DocObjects"] == "The root object documentation."
+      assert descriptions["DocObjectsChild"] == "The child object documentation."
+    end
+
+    test "enum descriptions are registered", %{dag: dag} do
+      module = Module.define(dag, CustomEnum)
+
+      assert {:ok, enums} = Dagger.Module.enums(module)
+
+      descriptions =
+        enums
+        |> Enum.map(&Dagger.TypeDef.as_enum/1)
+        |> Map.new(fn enum ->
+          {:ok, name} = Dagger.EnumTypeDef.name(enum)
+          {:ok, description} = Dagger.EnumTypeDef.description(enum)
+          {name, description}
+        end)
+
+      assert descriptions["SimpleEnum"] == "A severity level."
     end
   end
 
