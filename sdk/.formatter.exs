@@ -5,6 +5,7 @@
     locals_without_parens: [
       defn: 2,
       defn: 3,
+      defn: 4,
       field: 2,
       field: 3
     ]

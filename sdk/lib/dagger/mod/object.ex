@@ -62,40 +62,49 @@ defmodule Dagger.Mod.Object do
 
   ## Configure a function
 
-  `defn` accepts an optional configuration after the return type. Use a bare
-  atom for a single flag, or a list to combine that flag with options such as
-  `cache:`:
+  `defn` accepts an optional flag and an optional keyword list of options
+  after the return type, in that order:
 
       defn lint() :: Dagger.Void.t(), :check do
         # ...
       end
 
       defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(),
-             [:check, cache: {:ttl, "30s"}] do
+             :check,
+             cache: {:ttl, "30s"} do
         # ...
       end
 
-  A function may declare at most one flag: `:check`, `:generate`, `:up` and
-  `:agent` each run the function a different way, so a function is one of
-  them, never several at once.
+      defn version() :: String.t(), cache: :never do
+        # ...
+      end
+
+  The flag is a bare atom, never a list, because a function declares at most
+  one: `:check`, `:generate`, `:up` and `:agent` each run the function a
+  different way, so a function is one of them, never several at once.
+
+  The supported flags are:
+
+  | Flag        | Description                                                                                                                                                                     |
+  | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `:check`    | Discover and run this function with `dagger check`. Takes no required arguments.                                                                                                |
+  | `:generate` | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. Returns `Dagger.Changeset.t()` and takes no required arguments. |
+  | `:up`       | Start the service this function returns with `dagger up`. Returns `Dagger.Service.t()` and takes no required arguments.                                                         |
+  | `:agent`    | Register this function as agent middleware, composed by `dagger agent`. Returns `Dagger.LLM.t()` and requires a single `Dagger.LLM.t()` argument, the base.                     |
 
   The supported options are:
 
-  | Option | Value | Description |
-  | ------ | ----- | ----------- |
-  | `:check` | flag | Discover and run this function with `dagger check`. Takes no required arguments. |
-  | `:generate` | flag | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. Returns `Dagger.Changeset.t()` and takes no required arguments. |
-  | `:up` | flag | Start the service this function returns with `dagger up`. Returns `Dagger.Service.t()` and takes no required arguments. |
-  | `:agent` | flag | Register this function as agent middleware, composed by `dagger agent`. Returns `Dagger.LLM.t()` and requires a single `Dagger.LLM.t()` argument, the base. |
-  | `cache:` | `:default` | Cache the result with the engine default policy. |
-  | `cache:` | `:never` | Never cache the result. |
-  | `cache:` | `:per_session` | Cache the result for the duration of a session. |
+  | Option   | Value              | Description                                            |
+  | -------- | ------------------ | ------------------------------------------------------ |
+  | `cache:` | `:default`         | Cache the result with the engine default policy.       |
+  | `cache:` | `:never`           | Never cache the result.                                |
+  | `cache:` | `:per_session`     | Cache the result for the duration of a session.        |
   | `cache:` | `{:ttl, duration}` | Cache the result for `duration`, e.g. `{:ttl, "30s"}`. |
 
   A cache `duration` is a duration string such as `"30s"`, `"10m"` or `"1h30m"`.
   The engine rejects a value outside 1 second to 7 days.
 
-  See `defn/3` for the full grammar.
+  See `defn/4` for the full grammar.
 
   ## Declare a constructor
 
@@ -300,7 +309,7 @@ defmodule Dagger.Mod.Object do
     quote do
       use Dagger.Core.Base, kind: :object, name: unquote(name)
 
-      import Dagger.Mod.Object, only: [defn: 2, defn: 3, field: 2, field: 3, object: 1]
+      import Dagger.Mod.Object, only: [defn: 2, defn: 3, defn: 4, field: 2, field: 3, object: 1]
       import Dagger.Global, only: [dag: 0]
 
       Module.register_attribute(__MODULE__, :function, accumulate: true, persist: true)
@@ -336,32 +345,51 @@ defmodule Dagger.Mod.Object do
   @doc """
   Declare a function.
 
-  See `defn/3` to configure the declared function.
+  See `defn/4` to configure the declared function.
   """
   defmacro defn(call, do: block) do
-    build(call, [], block)
+    build(call, nil, [], block)
   end
 
   @doc """
-  Declare a function with configuration.
+  Declare a function with a flag or with options.
 
-  The configuration is either a single flag, written as a bare atom, or a list
-  combining that flag with keyword pairs:
+  The second argument is either a flag, written as a bare atom, or a keyword
+  list of options:
 
       defn lint() :: Dagger.Void.t(), :check do
         # ...
       end
 
       defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(),
-             [:check, cache: {:ttl, "30s"}] do
+             cache: {:ttl, "30s"} do
         # ...
       end
 
-  ## Flags
+  See `defn/4` for both at once, and for what each flag and option means.
+  """
+  defmacro defn(call, flag, do: block) when is_atom(flag) do
+    build(call, flag, [], block)
+  end
 
-  A function may declare at most one flag. Each one runs the function a
-  different way, so declaring more than one raises an `ArgumentError` at
-  compile time.
+  defmacro defn(call, opts, do: block) do
+    build(call, nil, opts, block)
+  end
+
+  @doc """
+  Declare a function with a flag and options.
+
+  The flag comes right after the return type, and the options after it:
+
+      defn hello() :: Dagger.Container.t(), :check, cache: {:ttl, "30s"} do
+        # ...
+      end
+
+  A function declares at most one flag, so the flag is a bare atom rather than
+  a list: `:check`, `:generate`, `:up` and `:agent` each run the function a
+  different way, and a function is one of them, never several at once.
+
+  ## Flags
 
     * `:check` - discover and run this function with `dagger check`. The
       function fails the check when it raises, or when it returns a container
@@ -408,26 +436,26 @@ defmodule Dagger.Mod.Object do
       The shape is checked when the module compiles; the engine rejects a
       value outside 1 second to 7 days when the module is served.
 
-  Both flags and options are validated when the module is compiled, so an
-  unknown option, a bad cache policy, a malformed duration, more than one
-  flag, or a flag whose contract the signature breaks raises an
-  `ArgumentError` pointing at the `defn` that declared it.
+  The flag and the options are validated when the module is compiled, so an
+  unknown flag, an unknown option, a bad cache policy, a malformed duration, or
+  a flag whose contract the signature breaks raises an `ArgumentError` pointing
+  at the `defn` that declared it.
 
   No flag can be used on `init`, which declares the object constructor rather
   than a callable function.
   """
-  defmacro defn(call, opts, do: block) do
-    build(call, opts, block)
+  defmacro defn(call, flag, opts, do: block) do
+    build(call, flag, opts, block)
   end
 
-  # Builds the AST for both `defn/2` and `defn/3`. This runs at expansion time,
-  # so any option error is raised against the `defn` call site.
-  defp build(call, opts, block) do
+  # Builds the AST for every `defn` arity. This runs at expansion time, so any
+  # flag or option error is raised against the `defn` call site.
+  defp build(call, flag, opts, block) do
     {name, args, return} = extract_call(call)
     has_self? = is_tuple(args)
     arg_defs = compile_args(args)
     return_def = compile_typespec!(return)
-    fun_opts = Options.normalize!(opts, name)
+    fun_opts = Options.normalize!(flag, opts, name)
     :ok = Options.validate_signature!(fun_opts, name, arg_defs, return_def)
 
     quote do

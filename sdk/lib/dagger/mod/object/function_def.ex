@@ -1,7 +1,7 @@
 defmodule Dagger.Mod.Object.FunctionDef do
   @moduledoc false
 
-  # A function declaration from `Dagger.Mod.Object.defn/2` or `defn/3`.
+  # A function declaration from `Dagger.Mod.Object.defn/2`, `defn/3` or `defn/4`.
 
   @enforce_keys [:self, :args, :return]
   defstruct @enforce_keys ++

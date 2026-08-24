@@ -1,13 +1,14 @@
 defmodule Dagger.Mod.Object.Options do
   @moduledoc false
 
-  # Compile-time normalization and validation of `Dagger.Mod.Object.defn/3`
-  # options.
+  # Compile-time normalization and validation of the flag and the options
+  # given to `Dagger.Mod.Object.defn/3` and `Dagger.Mod.Object.defn/4`.
   #
-  # Accepts either a bare flag (`:check`) or a list mixing a single flag and
-  # keyword pairs (`[:check, cache: {:ttl, "30s"}]`), and returns a keyword
-  # list with every key filled in. Every value is an AST literal, so the
-  # result can be `unquote`d straight into a `Dagger.Mod.Object.FunctionDef`.
+  # The flag and the options are separate arguments - `defn hello() ::
+  # Dagger.Container.t(), :check, cache: {:ttl, "30s"}` - so the grammar
+  # itself allows only one flag. Returns a keyword list with every key filled
+  # in. Every value is an AST literal, so the result can be `unquote`d
+  # straight into a `Dagger.Mod.Object.FunctionDef`.
 
   @flags [:check, :generate, :up, :agent]
 
@@ -16,7 +17,7 @@ defmodule Dagger.Mod.Object.Options do
   # `LLM`, which it declares as a required argument.
   @no_arg_flags [:check, :generate, :up]
 
-  @keys @flags ++ [:cache]
+  @opts [:cache]
   @policies [:default, :never, :per_session]
   @defaults [check: false, generate: false, up: false, agent: false, cache: nil]
 
@@ -24,45 +25,86 @@ defmodule Dagger.Mod.Object.Options do
   @duration ~r/^(\d+(\.\d+)?(ns|us|µs|ms|s|m|h))+$/
 
   @doc """
-  Normalize and validate the options given to `defn`.
+  Normalize and validate the flag and the options given to `defn`.
 
-  Raises `ArgumentError` on any unknown option, duplicate option, bad value,
-  more than one flag from #{inspect(@flags)}, or option that cannot apply to
-  `fun_name`.
+  `flag` is `nil` or one of #{inspect(@flags)}, and `opts` a keyword list of
+  #{inspect(@opts)}.
+
+  Raises `ArgumentError` on an unknown flag, an unknown or duplicated option,
+  a bad value, or a flag that cannot apply to `fun_name`.
   """
-  @spec normalize!(term(), atom()) :: keyword()
-  def normalize!(opts, fun_name) when is_atom(fun_name) do
+  @spec normalize!(term(), term(), atom()) :: keyword()
+  def normalize!(flag, opts, fun_name) when is_atom(fun_name) do
+    flag = normalize_flag!(flag, fun_name)
+
     opts
-    |> List.wrap()
-    |> Enum.map(&expand(&1, fun_name))
+    |> normalize_opts!(fun_name)
     |> reject_duplicates!(fun_name)
-    |> then(&Keyword.merge(@defaults, &1))
     |> validate_values!(fun_name)
-    |> reject_multiple_flags!(fun_name)
+    |> then(&Keyword.merge(@defaults, &1))
+    |> put_flag(flag)
     |> reject_unsupported!(fun_name)
   end
 
-  # Every flag is boolean, so a bare atom means "on".
-  defp expand(flag, _fun_name) when flag in @flags, do: {flag, true}
-  defp expand({key, value}, _fun_name) when key in @keys, do: {key, value}
+  defp normalize_flag!(nil, _fun_name), do: nil
+  defp normalize_flag!(flag, _fun_name) when flag in @flags, do: flag
 
-  defp expand({key, _value}, fun_name) when is_atom(key) do
+  defp normalize_flag!(flag, fun_name) when is_atom(flag) do
+    raise ArgumentError,
+          "unknown flag #{inspect(flag)} for `defn #{fun_name}`. " <>
+            "The supported flags are #{inspect(@flags)}"
+  end
+
+  defp normalize_flag!(other, fun_name) do
+    raise ArgumentError,
+          "invalid flag #{inspect(other)} for `defn #{fun_name}`. " <>
+            "Expected one of #{inspect(@flags)}, written as a bare atom right after " <>
+            "the return type"
+  end
+
+  # Every flag is boolean on `FunctionDef`, and only one of them can be on.
+  defp put_flag(opts, nil), do: opts
+  defp put_flag(opts, flag), do: Keyword.put(opts, flag, true)
+
+  defp normalize_opts!(opts, fun_name) when is_list(opts) do
+    Enum.map(opts, &validate_key!(&1, fun_name))
+  end
+
+  defp normalize_opts!(other, fun_name) do
+    raise ArgumentError,
+          "invalid options #{inspect(other)} for `defn #{fun_name}`. " <>
+            "Expected a keyword list of #{inspect(@opts)}"
+  end
+
+  defp validate_key!({key, value}, _fun_name) when key in @opts, do: {key, value}
+
+  defp validate_key!({flag, _value}, fun_name) when flag in @flags do
+    raise ArgumentError, flag_as_option(flag, fun_name)
+  end
+
+  defp validate_key!(flag, fun_name) when flag in @flags do
+    raise ArgumentError, flag_as_option(flag, fun_name)
+  end
+
+  defp validate_key!({key, _value}, fun_name) when is_atom(key) do
     raise ArgumentError, unknown(key, fun_name)
   end
 
-  defp expand(flag, fun_name) when is_atom(flag) do
-    raise ArgumentError, unknown(flag, fun_name)
-  end
-
-  defp expand(other, fun_name) do
+  defp validate_key!(other, fun_name) do
     raise ArgumentError,
           "invalid option #{inspect(other)} for `defn #{fun_name}`. " <>
-            "Expected a flag (#{inspect(@flags)}) or a keyword pair (#{inspect(@keys)})"
+            "Expected a keyword pair (#{inspect(@opts)})"
+  end
+
+  defp flag_as_option(flag, fun_name) do
+    "#{inspect(flag)} is a flag, not an option, in `defn #{fun_name}`. " <>
+      "Write it as a bare atom right after the return type, before the options: " <>
+      "`defn #{fun_name}(...) :: type, #{inspect(flag)}, cache: :never`"
   end
 
   defp unknown(key, fun_name) do
     "unknown option #{inspect(key)} for `defn #{fun_name}`. " <>
-      "The supported options are #{inspect(@keys)}"
+      "The supported options are #{inspect(@opts)}"
   end
 
   defp reject_duplicates!(opts, fun_name) do
@@ -81,30 +123,6 @@ defmodule Dagger.Mod.Object.Options do
   defp validate_values!(opts, fun_name) do
     Enum.each(opts, &validate_value!(&1, fun_name))
     opts
-  end
-
-  # A function has at most one behaviour: `:check`, `:generate`, `:up` and
-  # `:agent` each run the function a different way, so combining them is a
-  # contradiction rather than a composition.
-  defp reject_multiple_flags!(opts, fun_name) do
-    case for flag <- @flags, opts[flag], do: flag do
-      combined when length(combined) > 1 ->
-        raise ArgumentError,
-              "`defn #{fun_name}` combines #{inspect(combined)}, but a function may declare " <>
-                "only one behaviour. Choose a single flag from #{inspect(@flags)}"
-
-      _ ->
-        opts
-    end
-  end
-
-  defp validate_value!({flag, value}, _fun_name) when flag in @flags and is_boolean(value),
-    do: :ok
-
-  defp validate_value!({flag, value}, fun_name) when flag in @flags do
-    raise ArgumentError,
-          "expected #{inspect(flag)} to be a boolean in `defn #{fun_name}`, " <>
-            "got: #{inspect(value)}. Write it as the flag #{inspect(flag)} to enable it"
   end
 
   defp validate_value!({:cache, nil}, _fun_name), do: :ok
@@ -127,11 +145,11 @@ defmodule Dagger.Mod.Object.Options do
   end
 
   @doc """
-  Validate the flags against the signature they were declared on.
+  Validate the flag against the signature it was declared on.
 
   `arg_defs` is the compiled argument list (already stripped of `self`) and
   `return_def` the compiled return type, both as produced by
-  `Dagger.Mod.Object.defn/3`.
+  `Dagger.Mod.Object.defn/4`.
 
   Every rule here mirrors one the engine applies in `validateObjectFunction`
   when the module is loaded (`core/module.go`); catching them at compile time
@@ -273,7 +291,7 @@ defmodule Dagger.Mod.Object.Options do
   defp describe_type({:optional, type}), do: "#{describe_type(type)} | nil"
   defp describe_type(module) when is_atom(module), do: "#{inspect(module)}.t()"
 
-  # `init` becomes the object constructor, where neither flag has any meaning.
+  # `init` becomes the object constructor, where no flag has any meaning.
   defp reject_unsupported!(opts, :init) do
     Enum.each(@flags, fn flag ->
       if opts[flag] do
