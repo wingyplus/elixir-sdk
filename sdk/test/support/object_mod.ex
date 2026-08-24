@@ -294,7 +294,8 @@ defmodule CombinedOptions do
   use Dagger.Mod.Object, name: "CombinedOptions"
 
   defn everything() :: Dagger.Changeset.t(),
-       [:generate, cache: {:ttl, "1h30m"}] do
+       :generate,
+       cache: {:ttl, "1h30m"} do
     dag() |> Dagger.Client.changeset()
   end
 end

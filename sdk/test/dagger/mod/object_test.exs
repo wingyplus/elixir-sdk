@@ -3,7 +3,11 @@ defmodule Dagger.Mod.ObjectTest do
 
   alias Dagger.Mod.Object.FunctionDef
 
-  defp defn_options(fun_name, opts), do: Dagger.Mod.Object.Options.normalize!(opts, fun_name)
+  defp defn_options(fun_name, flag), do: defn_options(fun_name, flag, [])
+
+  defp defn_options(fun_name, flag, opts),
+    do: Dagger.Mod.Object.Options.normalize!(flag, opts, fun_name)
+
   alias Dagger.Mod.Object.FieldDef
 
   describe "defn/2" do
@@ -459,41 +463,25 @@ defmodule Dagger.Mod.ObjectTest do
              ] = CombinedOptions.__object__(:functions)
     end
 
-    test "option validation" do
-      assert_raise ArgumentError, ~r/unknown option :ttl for `defn f`/, fn ->
-        defn_options(:f, ttl: "30s")
-      end
-
-      assert_raise ArgumentError, ~r/unknown option :down for `defn f`/, fn ->
+    test "flag validation" do
+      assert_raise ArgumentError, ~r/unknown flag :down for `defn f`/, fn ->
         defn_options(:f, :down)
       end
 
-      assert_raise ArgumentError, ~r/expected :check to be a boolean/, fn ->
-        defn_options(:f, check: "yes")
-      end
-
-      assert_raise ArgumentError, ~r/invalid cache ttl "1 hour"/, fn ->
-        defn_options(:f, cache: {:ttl, "1 hour"})
-      end
-
-      assert_raise ArgumentError, ~r/invalid `cache` option :bogus/, fn ->
-        defn_options(:f, cache: :bogus)
-      end
-
-      assert_raise ArgumentError, ~r/option :check was given more than once/, fn ->
-        defn_options(:f, [:check, check: true])
+      assert_raise ArgumentError, ~r/invalid flag \["check"\] for `defn f`/, fn ->
+        defn_options(:f, ["check"])
       end
 
       assert_raise ArgumentError,
-                   ~r/`defn f` combines \[:check, :generate\], but a function may declare only one behaviour/,
+                   ~r/:check is a flag, not an option, in `defn f`/,
                    fn ->
-                     defn_options(:f, [:check, :generate])
+                     defn_options(:f, nil, check: true)
                    end
 
       assert_raise ArgumentError,
-                   ~r/`defn f` combines \[:check, :generate, :up, :agent\], but a function may declare only one behaviour/,
+                   ~r/:generate is a flag, not an option, in `defn f`/,
                    fn ->
-                     defn_options(:f, [:check, :generate, :up, :agent])
+                     defn_options(:f, nil, [:generate, cache: :never])
                    end
 
       assert_raise ArgumentError, ~r/:check cannot be used on `defn init`/, fn ->
@@ -510,6 +498,34 @@ defmodule Dagger.Mod.ObjectTest do
 
       assert_raise ArgumentError, ~r/:agent cannot be used on `defn init`/, fn ->
         defn_options(:init, :agent)
+      end
+    end
+
+    test "option validation" do
+      assert_raise ArgumentError, ~r/unknown option :ttl for `defn f`/, fn ->
+        defn_options(:f, nil, ttl: "30s")
+      end
+
+      assert_raise ArgumentError, ~r/invalid cache ttl "1 hour"/, fn ->
+        defn_options(:f, nil, cache: {:ttl, "1 hour"})
+      end
+
+      assert_raise ArgumentError, ~r/invalid `cache` option :bogus/, fn ->
+        defn_options(:f, nil, cache: :bogus)
+      end
+
+      assert_raise ArgumentError, ~r/option :cache was given more than once/, fn ->
+        defn_options(:f, nil, cache: :never, cache: :default)
+      end
+
+      assert_raise ArgumentError, ~r/invalid options :cache for `defn f`/, fn ->
+        defmodule OptionsNotAList do
+          use Dagger.Mod.Object, name: "OptionsNotAList"
+
+          defn f() :: Dagger.Void.t(), :check, :cache do
+            :ok
+          end
+        end
       end
     end
 
@@ -800,11 +816,11 @@ defmodule Dagger.Mod.ObjectTest do
     end
 
     test "options are optional and default to off" do
-      assert Dagger.Mod.Object.Options.normalize!([], :f) ==
+      assert Dagger.Mod.Object.Options.normalize!(nil, [], :f) ==
                [check: false, generate: false, up: false, agent: false, cache: nil]
 
-      assert Dagger.Mod.Object.Options.normalize!(:check, :f)[:check]
-      assert Dagger.Mod.Object.Options.normalize!([cache: :never], :init)[:cache] == :never
+      assert Dagger.Mod.Object.Options.normalize!(:check, [], :f)[:check]
+      assert Dagger.Mod.Object.Options.normalize!(nil, [cache: :never], :init)[:cache] == :never
     end
 
     test "type option validation" do
