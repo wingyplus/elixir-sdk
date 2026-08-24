@@ -26,19 +26,6 @@ defmodule HelloWithGenerators do
     |> Dagger.Directory.changes(before)
   end
 
-  # Declared with both options. The engine deduplicates it to a single *check*,
-  # so it runs via RunCheck rather than RunGeneratorAsCheck and is NOT failed
-  # for producing changes -- even though it produces the same changes as
-  # stale_generator above. Verified against 1.0.0-beta.9: this reports OK while
-  # stale_generator reports ERROR.
-  defn generator_and_check() :: Dagger.Changeset.t(), [:check, :generate] do
-    before = dag() |> Dagger.Client.directory()
-
-    before
-    |> Dagger.Directory.with_new_file("both.txt", "hello again\n")
-    |> Dagger.Directory.changes(before)
-  end
-
   # Neither a check nor a generator: must not be discovered by `dagger check`.
   defn plain_function() :: String.t() do
     "not a check"

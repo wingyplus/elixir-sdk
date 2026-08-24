@@ -63,7 +63,8 @@ defmodule Dagger.Mod.Object do
   ## Configure a function
 
   `defn` accepts an optional configuration after the return type. Use a bare
-  atom for a single flag, or a list to combine several options:
+  atom for a single flag, or a list to combine that flag with options such as
+  `cache:`:
 
       defn lint() :: Dagger.Void.t(), :check do
         # ...
@@ -73,6 +74,10 @@ defmodule Dagger.Mod.Object do
              [:check, cache: {:ttl, "30s"}] do
         # ...
       end
+
+  A function may declare at most one flag: `:check`, `:generate`, `:up` and
+  `:agent` each run the function a different way, so a function is one of
+  them, never several at once.
 
   The supported options are:
 
@@ -341,7 +346,7 @@ defmodule Dagger.Mod.Object do
   Declare a function with configuration.
 
   The configuration is either a single flag, written as a bare atom, or a list
-  combining flags and keyword pairs:
+  combining that flag with keyword pairs:
 
       defn lint() :: Dagger.Void.t(), :check do
         # ...
@@ -354,6 +359,10 @@ defmodule Dagger.Mod.Object do
 
   ## Flags
 
+  A function may declare at most one flag. Each one runs the function a
+  different way, so declaring more than one raises an `ArgumentError` at
+  compile time.
+
     * `:check` - discover and run this function with `dagger check`. The
       function fails the check when it raises, or when it returns a container
       whose last command exits non-zero.
@@ -363,8 +372,7 @@ defmodule Dagger.Mod.Object do
 
     * `:generate` - register this function as a generator, run by
       `dagger generate`. Generators also run as part of `dagger check` unless
-      it is given `--no-generate`. A function declared with both `:check` and
-      `:generate` runs once, as a check.
+      it is given `--no-generate`.
 
       A generator must return `Dagger.Changeset.t()` and, like a check, be
       callable with no arguments.
@@ -401,9 +409,9 @@ defmodule Dagger.Mod.Object do
       value outside 1 second to 7 days when the module is served.
 
   Both flags and options are validated when the module is compiled, so an
-  unknown option, a bad cache policy, a malformed duration or a flag whose
-  contract the signature breaks raises an `ArgumentError` pointing at the
-  `defn` that declared it.
+  unknown option, a bad cache policy, a malformed duration, more than one
+  flag, or a flag whose contract the signature breaks raises an
+  `ArgumentError` pointing at the `defn` that declared it.
 
   No flag can be used on `init`, which declares the object constructor rather
   than a callable function.

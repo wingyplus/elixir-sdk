@@ -449,10 +449,10 @@ defmodule Dagger.Mod.ObjectTest do
              ]
     end
 
-    test "combining flags and options" do
+    test "combining a flag and options" do
       assert [
                everything: %FunctionDef{
-                 check: true,
+                 check: false,
                  generate: true,
                  cache_policy: {:ttl, "1h30m"}
                }
@@ -483,6 +483,18 @@ defmodule Dagger.Mod.ObjectTest do
       assert_raise ArgumentError, ~r/option :check was given more than once/, fn ->
         defn_options(:f, [:check, check: true])
       end
+
+      assert_raise ArgumentError,
+                   ~r/`defn f` combines \[:check, :generate\], but a function may declare only one behaviour/,
+                   fn ->
+                     defn_options(:f, [:check, :generate])
+                   end
+
+      assert_raise ArgumentError,
+                   ~r/`defn f` combines \[:check, :generate, :up, :agent\], but a function may declare only one behaviour/,
+                   fn ->
+                     defn_options(:f, [:check, :generate, :up, :agent])
+                   end
 
       assert_raise ArgumentError, ~r/:check cannot be used on `defn init`/, fn ->
         defn_options(:init, :check)

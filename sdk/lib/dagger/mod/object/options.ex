@@ -4,7 +4,7 @@ defmodule Dagger.Mod.Object.Options do
   # Compile-time normalization and validation of `Dagger.Mod.Object.defn/3`
   # options.
   #
-  # Accepts either a bare flag (`:check`) or a list mixing bare flags and
+  # Accepts either a bare flag (`:check`) or a list mixing a single flag and
   # keyword pairs (`[:check, cache: {:ttl, "30s"}]`), and returns a keyword
   # list with every key filled in. Every value is an AST literal, so the
   # result can be `unquote`d straight into a `Dagger.Mod.Object.FunctionDef`.
@@ -27,7 +27,8 @@ defmodule Dagger.Mod.Object.Options do
   Normalize and validate the options given to `defn`.
 
   Raises `ArgumentError` on any unknown option, duplicate option, bad value,
-  or option that cannot apply to `fun_name`.
+  more than one flag from #{inspect(@flags)}, or option that cannot apply to
+  `fun_name`.
   """
   @spec normalize!(term(), atom()) :: keyword()
   def normalize!(opts, fun_name) when is_atom(fun_name) do
@@ -37,6 +38,7 @@ defmodule Dagger.Mod.Object.Options do
     |> reject_duplicates!(fun_name)
     |> then(&Keyword.merge(@defaults, &1))
     |> validate_values!(fun_name)
+    |> reject_multiple_flags!(fun_name)
     |> reject_unsupported!(fun_name)
   end
 
@@ -79,6 +81,21 @@ defmodule Dagger.Mod.Object.Options do
   defp validate_values!(opts, fun_name) do
     Enum.each(opts, &validate_value!(&1, fun_name))
     opts
+  end
+
+  # A function has at most one behaviour: `:check`, `:generate`, `:up` and
+  # `:agent` each run the function a different way, so combining them is a
+  # contradiction rather than a composition.
+  defp reject_multiple_flags!(opts, fun_name) do
+    case for flag <- @flags, opts[flag], do: flag do
+      combined when length(combined) > 1 ->
+        raise ArgumentError,
+              "`defn #{fun_name}` combines #{inspect(combined)}, but a function may declare " <>
+                "only one behaviour. Choose a single flag from #{inspect(@flags)}"
+
+      _ ->
+        opts
+    end
   end
 
   defp validate_value!({flag, value}, _fun_name) when flag in @flags and is_boolean(value),

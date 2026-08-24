@@ -359,24 +359,18 @@ type E2e {
     let names = listed.output
     assert(names.contains("up-to-date-generator"), "up-to-date-generator should be listed: " + names)
     assert(names.contains("stale-generator"), "stale-generator should be listed: " + names)
-    assert(names.contains("generator-and-check"), "generator-and-check should be listed: " + names)
     assert(
       names.contains("plain-function") == false,
       "plain-function is neither a check nor a generator and should not be listed: " + names
     )
 
-    # --no-generate drops the generator-only functions but keeps the one that is
-    # also declared `:check`.
+    # --no-generate drops the generator-only functions.
     let onlyChecks = gen.check(["-l", "--no-generate"])
     onlyChecks.assertSuccess
     let checkNames = onlyChecks.output
     assert(
       checkNames.contains("stale-generator") == false,
       "stale-generator is generator-only and should be dropped by --no-generate: " + checkNames
-    )
-    assert(
-      checkNames.contains("generator-and-check"),
-      "generator-and-check is declared `:check` too and should survive --no-generate: " + checkNames
     )
 
     # An empty changeset means the generated output is up to date.
@@ -393,16 +387,6 @@ type E2e {
     assert(
       stale.matches(`stale-generator.*ERROR`),
       "stale-generator produces changes and should report ERROR:\n" + stale.output
-    )
-
-    # Declared `:check` as well, so the engine deduplicates it to a single check
-    # and runs it via RunCheck -- it is NOT failed for producing changes, even
-    # though it produces the same changes stale-generator does.
-    let both = gen.check(["generator-and-check"])
-    both.assertSuccess
-    assert(
-      both.matches(`generator-and-check.*OK`),
-      "generator-and-check runs as a check, so producing changes should not fail it:\n" + both.output
     )
   }
 }
