@@ -70,6 +70,16 @@ type ModuleRunner {
   }
 
   """
+  Run `dagger generate` over the mounted workspace without requiring success.
+
+  Generation is workspace-wide rather than module-scoped, so this one takes no
+  module reference: what it reaches is what the mounted `dagger.toml` registers.
+  """
+  pub generate(args: [String!]!): Run! {
+    run(["--progress", "plain", "generate"] + args)
+  }
+
+  """
   Assert that a call's JSON stdout is the expected JSON string.
   """
   pub assertJsonString(args: [String!]!, want: String!, message: String!): Void {
@@ -192,6 +202,13 @@ type Run {
   """
   pub output: String! {
     container.file(combinedPath).contents
+  }
+
+  """
+  The mounted workspace as the command left it.
+  """
+  pub workspace: Directory! {
+    container.directory("/work")
   }
 
   """

@@ -6,6 +6,9 @@ way a user would, so it exercises the whole stack: this repository's `runtime/`
 loads the module, the runtime generates the API bindings on the fly (the
 fixtures are deliberately left ungenerated), and the module serves its API.
 
+One check instead drives `dagger generate`, over a workspace synthesized for it:
+what the SDK writes, and where, is covered nowhere else.
+
 The fixtures use `dagger-module.toml` and point its `[runtime] source` at this
 repository's `runtime/` by relative path, so the checks run against the working
 tree rather than a published SDK. They are intentionally *not* registered in the
@@ -342,6 +345,58 @@ type E2e {
     let names = listed.output
     assert(names.contains("up-service") == false, "up-service is not a check and should not be listed: " + names)
     assert(names.contains("agent-middleware") == false, "agent-middleware is not a check and should not be listed: " + names)
+  }
+
+  """
+  Generation follows the module's source directory, not the directory that
+  holds its config.
+
+  The `split-source` fixture keeps its `dagger-module.toml` at the module root
+  and points `source` at `.dagger/` — the layout a project gets when its Dagger
+  code lives in a subdirectory. The vendored SDK has to land beside the
+  `mix.exs` that depends on `./dagger_sdk`, so under `.dagger/`, and not at the
+  module root where the config sits.
+
+  Unlike the other checks this one drives `dagger generate` rather than a call
+  against the module: generation is workspace-wide, so the fixture is reached
+  through a synthesized `dagger.toml` that registers this repository as the
+  `elixir` SDK and the fixture as one of its modules. The repository's own
+  `dagger.toml` deliberately lists no fixture.
+  """
+  pub generateSourceSubpathCheck(ws: Workspace!): Void @check {
+    let modPath = fixtureRoot + "/split-source"
+    let runner = ModuleRunner(
+      workspaceView: ws
+        .moduleSource("/" + modPath)
+        .contextDirectory
+        .withNewFile("dagger.toml", generateWorkspaceToml(modPath)),
+      modulePath: modPath,
+      daggerCliVersion: daggerCliVersion,
+      timeout: "10m",
+    )
+
+    let generated = runner.generate(["-y"])
+    generated.assertSuccess
+
+    let generatedWs = generated.workspace
+    assert(
+      generatedWs.exists(modPath + "/.dagger/dagger_sdk/mix.exs"),
+      "the vendored SDK should land beside the module's mix.exs, in its source directory:\n" + generated.output
+    )
+    assert(
+      generatedWs.exists(modPath + "/dagger_sdk") == false,
+      "the vendored SDK should not land at the module root, where only the config sits:\n" + generated.output
+    )
+  }
+
+  """
+  A workspace registering this repository as the `elixir` SDK and `modPath` as
+  one of its modules — the least `dagger generate` needs to reach a fixture.
+  """
+  let generateWorkspaceToml(modPath: String!): String! {
+    "[modules.elixir-sdk]\nsource = \".\"\n\n"
+      + "[modules.elixir-sdk.as-sdk]\nname = \"elixir\"\n\n"
+      + "[[modules.elixir-sdk.as-sdk.modules]]\npath = \"" + modPath + "\"\n"
   }
 
   """

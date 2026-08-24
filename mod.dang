@@ -24,7 +24,8 @@ type Mod {
   let skipGenerateFilename: String!
 
   """
-  Directory the vendored SDK is written to, relative to the module root.
+  Directory the vendored SDK is written to, relative to the module's source
+  directory — where the module's `mix.exs` sits and depends on it by path.
   """
   let genDir: String! = "dagger_sdk"
 
@@ -56,7 +57,7 @@ type Mod {
 
   """
   Generate this module: vendor the Elixir SDK and the API bindings generated from
-  the module's schema into `<module>/dagger_sdk`.
+  the module's schema into `<module source>/dagger_sdk`.
 
   If the generate skip marker is present, the changeset is empty.
   """
@@ -88,7 +89,11 @@ type Mod {
       )
       let modSource = stagedWs.moduleSource("/" + rootPath)
       let vendored = vendoredSdk(modSource.introspectionSchemaJSON)
-      let genPath = "/" + joinPath(rootPath, genDir)
+      # Anchored at the module's source directory, not at its root: the two
+      # differ when the module config points its source elsewhere, and it is the
+      # source directory that holds the `mix.exs` depending on `./dagger_sdk` —
+      # and where the runtime looks for it.
+      let genPath = "/" + joinPath(joinPath(rootPath, sourceOffset(modSource)), genDir)
 
       # Applied onto `into`, not `stagedWs`: the dependency codegen staged above
       # is an input to this module's introspection, never part of its output.
@@ -167,9 +172,41 @@ type Mod {
   }
 
   """
-  Join a module path with a sub-path, handling the root (".") module.
+  The module's source directory, relative to the module root.
+
+  Usually "." — the two differ when the module config points its source
+  elsewhere, as a `dagger-module.toml` at a project root does with
+  `source = ".dagger"`, and as a legacy `dagger.json` does with
+  `"source": ".dagger"`. `sourceRootSubpath` (the directory holding the config)
+  and `sourceSubpath` (the directory holding the source) are both relative to
+  the module's context directory, so their difference is the offset from the
+  module root whatever that context directory happens to be.
+  """
+  let sourceOffset(modSource: ModuleSource!): String! {
+    let root = normalizePath(modSource.sourceRootSubpath)
+    let sub = normalizePath(modSource.sourceSubpath)
+    if (sub == root) {
+      "."
+    } else if (root == ".") {
+      sub
+    } else {
+      sub.trimPrefix(root + "/")
+    }
+  }
+
+  """
+  Join a module path with a sub-path, handling the root (".") module and the
+  empty (".") sub-path.
   """
   let joinPath(modPath: String!, sub: String!): String! {
-    if (modPath == ".") { sub } else { modPath + "/" + sub }
+    if (modPath == ".") { sub } else if (sub == ".") { modPath } else { modPath + "/" + sub }
+  }
+
+  """
+  Normalize a path to a workspace-relative form, with "." for the root.
+  """
+  let normalizePath(path: String!): String! {
+    let normalized = path.trimPrefix("./").trimPrefix("/").trimSuffix("/")
+    if (normalized == "") { "." } else { normalized }
   }
 }

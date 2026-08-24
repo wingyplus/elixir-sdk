@@ -1,0 +1,9 @@
+name = "split-source"
+engineVersion = "v1.0.0-0"
+# The module config sits at the module root while the code lives in `.dagger/`,
+# the layout `dagger init` produces for an existing project. Generation has to
+# follow the source directory, not this one.
+source = ".dagger"
+
+[runtime]
+  source = "../../../../../runtime"

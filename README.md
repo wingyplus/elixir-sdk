@@ -76,8 +76,10 @@ dagger generate
 ```
 
 Generation vendors the Elixir SDK, together with the API bindings generated from your
-engine's schema, into `<module>/dagger_sdk/`. **Commit it** — the runtime builds from the
-committed sources and never regenerates them.
+engine's schema, into `<module source>/dagger_sdk/` — next to the `mix.exs` that depends on
+it, which is the module's source directory rather than the directory holding its config when
+the two differ. **Commit it** — the runtime builds from the committed sources and never
+regenerates them.
 
 To exclude a directory tree from bulk generation, drop an empty
 `.dagger-elixir-sdk-skip-generate` file at or above the module root:
