@@ -399,6 +399,23 @@ defmodule Dagger.Mod.ModuleTest do
       assert "SimpleEnum" in enum_names
     end
 
+    test "enums used only as object field types get registered", %{dag: dag} do
+      module = Module.define(dag, EnumOnField)
+
+      assert {:ok, enums} = Dagger.Module.enums(module)
+
+      enum_names =
+        enums
+        |> Enum.map(&Dagger.TypeDef.as_enum/1)
+        |> Enum.map(fn enum ->
+          {:ok, name} = Dagger.EnumTypeDef.name(enum)
+          name
+        end)
+
+      assert "EnumWithOption" in enum_names
+      assert "SimpleEnum" in enum_names
+    end
+
     test "object descriptions are registered", %{dag: dag} do
       module = Module.define(dag, DocObjects)
 

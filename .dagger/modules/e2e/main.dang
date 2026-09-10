@@ -122,6 +122,30 @@ type E2e {
   }
 
   """
+  An enum used only as an object field type is registered with the engine.
+
+  `ObjectsAuthKind` is named by `Objects.C.kind` and by nothing else — it is
+  never a function argument — so the SDK reaches it only by walking object
+  fields. Until it did, the module still loaded and still listed its functions,
+  but the engine rejected the field the moment the object was constructed, with
+  `missing mod type`.
+  """
+  pub enumFieldTypeCheck(ws: Workspace!): Void @check {
+    let objects = fixture(ws, "objects")
+
+    objects.assertJsonString(
+      ["object-c", "message"],
+      "Hello from C",
+      "an object carrying an enum-typed field should be constructible",
+    )
+    objects.assertJsonString(
+      ["object-c", "kind"],
+      "TOKEN",
+      "an enum-typed field should carry its member to the caller",
+    )
+  }
+
+  """
   `init` accepts constructor arguments.
   """
   pub constructorArgCheck(ws: Workspace!): Void @check {

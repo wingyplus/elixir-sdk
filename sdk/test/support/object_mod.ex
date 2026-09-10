@@ -481,3 +481,27 @@ defmodule DocObjects do
     %DocObjects.Child{}
   end
 end
+
+defmodule EnumOnFieldChild do
+  @moduledoc false
+
+  use Dagger.Mod.Object, name: "EnumOnFieldChild"
+
+  object do
+    field(:kind, SimpleEnum.t() | nil)
+  end
+end
+
+defmodule EnumOnField do
+  @moduledoc false
+
+  use Dagger.Mod.Object, name: "EnumOnField"
+
+  object do
+    field(:severity, EnumWithOption.t() | nil)
+  end
+
+  defn child() :: EnumOnFieldChild.t() do
+    %EnumOnFieldChild{}
+  end
+end
