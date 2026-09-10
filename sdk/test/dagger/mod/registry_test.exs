@@ -13,6 +13,11 @@ defmodule Dagger.Mod.RegistryTest do
     assert_raise RuntimeError, fn -> Registry.get_module_by_name!(registry, "NotExist") end
   end
 
+  test "register an enum that appears only as a field type" do
+    assert Registry.register(EnumOnField) |> Registry.all_modules() ==
+             [EnumOnField, EnumOnFieldChild, EnumWithOption, SimpleEnum]
+  end
+
   test "no register itself recursively" do
     registry = Registry.register(ConstructorFunction)
     assert registry |> Registry.all_modules() == [ConstructorFunction]

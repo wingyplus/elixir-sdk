@@ -14,4 +14,8 @@ defmodule Objects do
   defn object_a() :: Objects.A.t() do
     %Objects.A{}
   end
+
+  defn object_c() :: Objects.C.t() do
+    %Objects.C{kind: Objects.AuthKind.token()}
+  end
 end

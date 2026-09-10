@@ -39,7 +39,7 @@ defmodule Dagger.Mod.Registry do
 
   defp traverse(root_module) do
     root_module.__object__(:functions)
-    |> traverse([root_module])
+    |> traverse([collect_enums_from_fields(root_module), root_module])
   end
 
   defp traverse([], modules), do: modules |> List.flatten() |> Enum.uniq() |> Enum.reverse()
@@ -67,6 +67,13 @@ defmodule Dagger.Mod.Registry do
       type = Keyword.fetch!(arg_def, :type)
       collect_enums_from_args(type)
     end)
+  end
+
+  # An enum that only appears as a field type is never a function argument, so
+  # walk the fields too or the engine rejects the field with "missing mod type".
+  defp collect_enums_from_fields(module) do
+    module.__object__(:fields)
+    |> Enum.flat_map(fn {_name, field_def} -> collect_enums_from_args(field_def.type) end)
   end
 
   defp collect_enums_from_args({:optional, type}), do: collect_enums_from_args(type)
