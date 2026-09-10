@@ -95,7 +95,10 @@ defmodule ArgOptions do
             default_path: "/sdk/elixir",
             ignore: ["deps", "_build"]}
        ) :: String.t() do
-    Dagger.Directory.id(dir)
+    case dir do
+      nil -> ""
+      dir -> Dagger.Directory.id(dir)
+    end
   end
 end
 
