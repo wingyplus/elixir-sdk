@@ -8,9 +8,7 @@ const codegen = @import("codegen");
 const cases = @import("cases.zig");
 
 pub fn render(a: std.mem.Allocator, c: cases.Case, fixture: []const u8) ![]const u8 {
-    const t = try std.json.parseFromSliceLeaky(codegen.introspection.FullType, a, fixture, .{
-        .ignore_unknown_fields = true,
-    });
+    const t = try codegen.parser.fullTypeDocument(a, fixture);
     var index: codegen.analyzer.Index = .empty;
     for (c.index) |stub| {
         const values = try a.alloc(codegen.introspection.EnumValue, stub.enum_values.len);
@@ -36,4 +34,17 @@ test "generated modules match their snapshots" {
         }
     }
     try std.testing.expectEqual(0, failures);
+}
+
+test "the schema reader agrees with std.json on every fixture" {
+    inline for (cases.all) |c| {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const a = arena.allocator();
+        const fixture = @embedFile("fixtures/" ++ c.fixture ++ ".json");
+        const want = try std.json.parseFromSliceLeaky(codegen.introspection.FullType, a, fixture, .{
+            .ignore_unknown_fields = true,
+        });
+        try std.testing.expectEqualDeep(want, try codegen.parser.fullTypeDocument(a, fixture));
+    }
 }

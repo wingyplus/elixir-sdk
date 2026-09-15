@@ -1,23 +1,18 @@
 pub description = "Develop the Dagger Elixir SDK"
 
-# Zig release the code generator is built and tested with. Kept in step with the
-# same constants in mod.dang and runtime/main.dang.
-let zigVersion = "0.16.0"
-let zigInstallScript = "set -eu; version=$1; arch=$(uname -m); case \"$arch\" in x86_64) sum=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00;; aarch64) sum=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17;; *) echo \"no Zig $version archive for $arch\" >&2; exit 1;; esac; wget -qO /tmp/zig.tar.xz \"https://ziglang.org/download/$version/zig-$arch-linux-$version.tar.xz\"; echo \"$sum  /tmp/zig.tar.xz\" | sha256sum -c -; mkdir -p /opt/zig; tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1; rm /tmp/zig.tar.xz"
 
 """
-Dev tooling for this repository: lint and test the Elixir client library and its
-codegen project, and keep the pinned Elixir image in step across the Dang modules
-that reference it.
+Dev tooling for this repository: lint and test the Elixir client library, and
+keep the pinned Elixir image in step with the module runtime.
 
 Module scaffolding, code generation for user modules, and the module runtime are
 not here — they live in the root module (`elixir-sdk.dang`, `mod.dang`) and
-`runtime/main.dang`.
+`runtime/main.dang`. The code generator has its own module in `codegen/`.
 """
 type Dev {
   """
-  Elixir image the checks run on. `syncImage` propagates this to the Dang modules
-  that pin the same image.
+  Elixir image the checks run on. `syncImage` propagates this to the module
+  runtime, which pins the same image.
   """
   pub baseImage: String! = "elixir:1.20.1-otp-29-alpine@sha256:f50894ff69b0d07b310fe9c97b48b3475568ecccb7f0ccd7c350a789feb395a3"
 
@@ -65,46 +60,13 @@ type Dev {
   }
 
   """
-  Test the code generator in `sdk/dagger_codegen`: its unit tests, and the
-  snapshot tests that render every fixture and compare the module byte-for-byte
-  with its snapshot.
-  """
-  pub codegenTest: Void @check {
-    codegenContainer
-      .withExec(["/opt/zig/zig", "build", "test", "--summary", "all"])
-      .sync
-
-    null
-  }
-
-  """
-  Rewrite the code generator's snapshots from its current output.
-
-  Review the changeset before applying it: every changed line is a change in
-  what `dagger generate` writes.
-  """
-  pub updateCodegenTests: Changeset! {
-    let snapshots = sourcePath + "/dagger_codegen/test/snapshots"
-    let before = ws.directory("/", include: [snapshots + "/**"])
-
-    let updated = codegenContainer
-      .withExec(["/opt/zig/zig", "build", "update-snapshots"])
-      .directory("/src/dagger_codegen/test/snapshots")
-
-    before
-      .withDirectory(snapshots, updated)
-      .changes(before)
-  }
-
-  """
   Pin the same Elixir image everywhere it appears.
 
-  The image is declared in three places that must agree: this module, the module
-  runtime, and the codegen container used by `dagger generate`. Set `baseImage`
-  and run this to propagate it.
+  The image is declared in two places that must agree: this module and the module
+  runtime. Set `baseImage` and run this to propagate it.
   """
   pub syncImage: Changeset! {
-    let paths = ["runtime/main.dang", "mod.dang"]
+    let paths = ["runtime/main.dang"]
     let before = ws.directory("/", include: paths)
 
     paths
@@ -131,17 +93,5 @@ type Dev {
       .withWorkdir("/src")
       .withDirectory("/src", source)
       .withExec(["mix", "deps.get"])
-  }
-
-  """
-  Container with Zig installed and the code generator's project as its workdir.
-  """
-  let codegenContainer: Container! {
-    container
-      .from(baseImage)
-      .withExec(["sh", "-c", zigInstallScript, "install-zig", zigVersion])
-      .withMountedCache("/root/.cache/zig", cacheVolume("elixir-sdk-zig"))
-      .withDirectory("/src/dagger_codegen", source.directory("dagger_codegen"))
-      .withWorkdir("/src/dagger_codegen")
   }
 }

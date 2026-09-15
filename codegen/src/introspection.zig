@@ -1,7 +1,7 @@
 //! A GraphQL introspection schema, reduced to what the generator reads.
 //!
-//! Field names mirror the JSON keys so `std.json` can parse straight into
-//! these structs. Strings borrow from the input buffer where possible.
+//! Field names mirror the JSON keys; `parser.zig` reads straight into these
+//! structs. Strings borrow from the input buffer where possible.
 
 pub const TypeRef = struct {
     kind: []const u8,
@@ -57,10 +57,6 @@ pub const FullType = struct {
 
 pub const Schema = struct {
     types: []FullType,
-};
-
-pub const Root = struct {
-    __schema: Schema,
 };
 
 /// The name an `@expectedType` directive points at, with its GraphQL quotes

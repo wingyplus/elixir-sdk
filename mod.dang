@@ -1,14 +1,7 @@
-# Image codegen runs in. Kept in step with the same constant in
-# runtime/main.dang by `dagger call -m .dagger/modules/dev sync-image`, which
-# rewrites both files.
-let elixirImage = "elixir:1.20.1-otp-29-alpine@sha256:f50894ff69b0d07b310fe9c97b48b3475568ecccb7f0ccd7c350a789feb395a3"
-
-# Zig release the code generator is built with. The script installs it into
-# /opt/zig, verifying the archive for the engine's architecture against the
-# SHA-256 published in https://ziglang.org/download/index.json. Kept in step
-# with the same constants in runtime/main.dang and .dagger/modules/dev/main.dang.
-let zigVersion = "0.16.0"
-let zigInstallScript = "set -eu; version=$1; arch=$(uname -m); case \"$arch\" in x86_64) sum=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00;; aarch64) sum=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17;; *) echo \"no Zig $version archive for $arch\" >&2; exit 1;; esac; wget -qO /tmp/zig.tar.xz \"https://ziglang.org/download/$version/zig-$arch-linux-$version.tar.xz\"; echo \"$sum  /tmp/zig.tar.xz\" | sha256sum -c -; mkdir -p /opt/zig; tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1; rm /tmp/zig.tar.xz"
+# Prebuilt code generator image, published from codegen/ by
+# `dagger call codegen publish` and pinned by digest. `dagger call codegen pin`
+# rewrites this constant here and in runtime/main.dang.
+let codegenImage = "ttl.sh/elixir-sdk-codegen-8eac13bb:24h@sha256:d03bc5407aac6833a370c910a00003e61b085611a4c1a1944e29264c2bd68a61"
 
 """
 A Dagger module that uses the Elixir SDK.
@@ -135,46 +128,20 @@ type Mod {
   }
 
   """
-  The code generator's sources — just enough to build it. Deliberately narrow so
-  the build caches across edits to everything else, the generator's own tests
-  included.
-  """
-  let codegenSourceDir: Directory! {
-    sdkSourceDir
-      .directory("dagger_codegen")
-      .filter(include: ["build.zig", "build.zig.zon", "src/**"])
-  }
-
-  """
-  The code generator, a static Linux executable built from `sdk/dagger_codegen`.
-
-  Built once and reused across schemas: only its own sources and the Zig release
-  feed this layer.
-  """
-  let codegenBinary: File! {
-    container
-      .from(elixirImage)
-      .withExec(["sh", "-c", zigInstallScript, "install-zig", zigVersion])
-      .withMountedCache("/root/.cache/zig", cacheVolume("elixir-sdk-zig"))
-      .withMountedDirectory("/codegen", codegenSourceDir)
-      .withWorkdir("/codegen")
-      .withExec(["/opt/zig/zig", "build", "-Doptimize=ReleaseSafe", "--prefix", "/out"])
-      .file("/out/bin/dagger_codegen")
-  }
-
-  """
   Run the code generator over the module's introspection schema and return the
   generated API bindings, laid out by the generator itself.
+
+  The generator comes prebuilt from `codegenImage`: a static executable on an
+  otherwise empty image, so nothing is installed or compiled here.
 
   Kept in step with generatedBindings in runtime/main.dang.
   """
   let generatedBindings(introspectionJSON: File!): Directory! {
     container
-      .from(elixirImage)
-      .withFile("/usr/local/bin/dagger_codegen", codegenBinary)
+      .from(codegenImage)
       .withMountedFile("/schema.json", introspectionJSON)
       .withExec([
-        "dagger_codegen",
+        "/dagger_codegen",
         "generate",
         "--outdir",
         "/gen",

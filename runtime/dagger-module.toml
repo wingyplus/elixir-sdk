@@ -1,6 +1,6 @@
 name = "elixir-sdk-runtime"
 engineVersion = "v1.0.0-0"
-include = ["../sdk/lib/**", "../sdk/mix.exs", "../sdk/mix.lock", "../sdk/.formatter.exs", "../sdk/LICENSE", "../sdk/dagger_codegen/build.zig", "../sdk/dagger_codegen/build.zig.zon", "../sdk/dagger_codegen/src/**"]
+include = ["../sdk/lib/**", "../sdk/mix.exs", "../sdk/mix.lock", "../sdk/.formatter.exs", "../sdk/LICENSE"]
 
 [runtime]
   source = "dang"

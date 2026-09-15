@@ -29,7 +29,7 @@ const Line = struct {
     buf: Writer.Allocating,
 
     fn init(a: Allocator) Line {
-        return .{ .buf = .init(a) };
+        return .{ .buf = Writer.Allocating.initCapacity(a, 128) catch .init(a) };
     }
 
     fn w(self: *Line) *Writer {
@@ -45,12 +45,18 @@ const Line = struct {
     }
 };
 
+/// Write each part in turn: `print` for strings, without format parsing or
+/// padding.
+fn cat(w: *Writer, parts: []const []const u8) !void {
+    for (parts) |part| try w.writeAll(part);
+}
+
 fn pad(w: *Writer, indent: usize) !void {
     try w.splatByteAll(' ', indent);
 }
 
 pub fn render(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
-    try w.print("{s}\ndefmodule {s} do\n", .{ header, mod.module });
+    try cat(w, &.{ header, "\ndefmodule ", mod.module, " do\n" });
     try heredoc(w, 2, "@moduledoc ", mod.moduledoc);
     try w.writeByte('\n');
     switch (mod.kind) {
@@ -78,7 +84,7 @@ fn objectBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
         \\
         \\
     , .{ mod.kind, mod.gql_name });
-    for (mod.derives) |d| try w.print("  @derive {s}\n", .{d});
+    for (mod.derives) |d| try cat(w, &.{ "  @derive ", d, "\n" });
     try w.writeAll(
         \\  defstruct [:query_builder, :client]
         \\
@@ -92,23 +98,23 @@ fn objectBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
 }
 
 fn enumBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
-    try w.print("  use Dagger.Core.Base, kind: :enum, name: \"{s}\"\n\n", .{mod.gql_name});
+    try cat(w, &.{ "  use Dagger.Core.Base, kind: :enum, name: \"", mod.gql_name, "\"\n\n" });
 
     var line = Line.init(a);
     try line.w().writeAll("@type t() :: ");
     for (mod.enum_values, 0..) |v, i| {
         if (i > 0) try line.w().writeAll(" | ");
-        try line.w().print(":{s}", .{v.value});
+        try cat(line.w(), &.{ ":", v.value });
     }
     const union_text = line.text()["@type t() :: ".len..];
     if (line.fits(2)) {
-        try w.print("  {s}\n", .{line.text()});
+        try cat(w, &.{ "  ", line.text(), "\n" });
     } else if (10 + union_text.len <= line_length) {
-        try w.print("  @type t() ::\n          {s}\n", .{union_text});
+        try cat(w, &.{ "  @type t() ::\n          ", union_text, "\n" });
     } else {
         try w.writeAll("  @type t() ::\n");
         for (mod.enum_values, 0..) |v, i| {
-            try w.print("          {s}:{s}\n", .{ if (i > 0) "| " else "", v.value });
+            try cat(w, &.{ "          ", if (i > 0) "| " else "", ":", v.value, "\n" });
         }
     }
 
@@ -120,7 +126,7 @@ fn enumBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
         if (seen) continue;
         try w.writeByte('\n');
         if (v.doc) |d| try heredoc(w, 2, "@doc ", d);
-        try w.print("  @spec {0s}() :: :{1s}\n  def {0s}(), do: :{1s}\n", .{ v.name, v.value });
+        try cat(w, &.{ "  @spec ", v.name, "() :: :", v.value, "\n  def ", v.name, "(), do: :", v.value, "\n" });
     }
 
     try w.writeAll(
@@ -131,26 +137,26 @@ fn enumBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
         \\
         \\
     );
-    for (mod.enum_values) |v| try w.print("  def from_string(\"{0s}\"), do: :{0s}\n", .{v.value});
+    for (mod.enum_values) |v| try cat(w, &.{ "  def from_string(\"", v.value, "\"), do: :", v.value, "\n" });
 }
 
 fn inputBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
-    try w.print("  use Dagger.Core.Base, kind: :input, name: \"{s}\"\n\n", .{mod.gql_name});
+    try cat(w, &.{ "  use Dagger.Core.Base, kind: :input, name: \"", mod.gql_name, "\"\n\n" });
 
     var line = Line.init(a);
     try line.w().writeAll("@type t() :: %__MODULE__{");
     for (mod.fields, 0..) |f, i| {
         if (i > 0) try line.w().writeAll(", ");
-        try line.w().print("{s}: ", .{f.name});
+        try cat(line.w(), &.{ f.name, ": " });
         try types.spec(a, line.w(), f.type);
     }
     try line.w().writeByte('}');
     if (line.fits(2)) {
-        try w.print("  {s}\n", .{line.text()});
+        try cat(w, &.{ "  ", line.text(), "\n" });
     } else {
         try w.writeAll("  @type t() :: %__MODULE__{\n");
         for (mod.fields, 0..) |f, i| {
-            try w.print("          {s}: ", .{f.name});
+            try cat(w, &.{ "          ", f.name, ": " });
             try types.spec(a, w, f.type);
             try w.writeAll(if (i + 1 < mod.fields.len) ",\n" else "\n");
         }
@@ -174,12 +180,12 @@ fn inputBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
 /// `prefix[:a, :b]`, or one atom per line when that does not fit.
 fn atomList(a: Allocator, w: *Writer, prefix: []const u8, names: []const []const u8) !void {
     var line = Line.init(a);
-    try line.w().print("{s}[", .{prefix});
-    for (names, 0..) |n, i| try line.w().print("{s}:{s}", .{ if (i > 0) ", " else "", n });
+    try cat(line.w(), &.{ prefix, "[" });
+    for (names, 0..) |n, i| try cat(line.w(), &.{ if (i > 0) ", " else "", ":", n });
     try line.w().writeByte(']');
-    if (line.fits(2)) return w.print("  {s}\n", .{line.text()});
-    try w.print("  {s}[\n", .{prefix});
-    for (names, 0..) |n, i| try w.print("    :{s}{s}\n", .{ n, if (i + 1 < names.len) "," else "" });
+    if (line.fits(2)) return cat(w, &.{ "  ", line.text(), "\n" });
+    try cat(w, &.{ "  ", prefix, "[\n" });
+    for (names, 0..) |n, i| try cat(w, &.{ "    :", n, if (i + 1 < names.len) "," else "", "\n" });
     try w.writeAll("  ]\n");
 }
 
@@ -220,43 +226,43 @@ fn spec(a: Allocator, w: *Writer, f: *const Function) !void {
     }
 
     var call = Line.init(a);
-    try call.w().print("@spec {s}(", .{f.name});
-    for (params.items, 0..) |p, i| try call.w().print("{s}{s}", .{ if (i > 0) ", " else "", p });
+    try cat(call.w(), &.{ "@spec ", f.name, "(" });
+    for (params.items, 0..) |p, i| try cat(call.w(), &.{ if (i > 0) ", " else "", p });
     try call.w().writeByte(')');
 
     // 1. Everything on one line.
     if (2 + call.text().len + 4 + ret.text().len <= line_length) {
-        return w.print("  {s} :: {s}\n", .{ call.text(), ret.text() });
+        return cat(w, &.{ "  ", call.text(), " :: ", ret.text(), "\n" });
     }
     // 2. Break after `::`. The formatter measures the call without the ` ::`,
     // and lets a trailing keyword list hang one column further.
     const hang: usize = if (f.optional_args.len > 0) 1 else 0;
     if (2 + call.text().len <= line_length + hang and 10 + ret.text().len <= line_length) {
-        return w.print("  {s} ::\n          {s}\n", .{ call.text(), ret.text() });
+        return cat(w, &.{ "  ", call.text(), " ::\n          ", ret.text(), "\n" });
     }
     // 3. Break the trailing keyword list, one entry per line, when the line
     // that opens it fits.
     var opening = Line.init(a);
-    try opening.w().print("@spec {s}(", .{f.name});
-    for (params.items[0 .. params.items.len - 1]) |p| try opening.w().print("{s}, ", .{p});
+    try cat(opening.w(), &.{ "@spec ", f.name, "(" });
+    for (params.items[0 .. params.items.len - 1]) |p| try cat(opening.w(), &.{ p, ", " });
     try opening.w().writeByte('[');
     if (f.optional_args.len > 0 and opening.fits(2)) {
-        try w.print("  {s}\n", .{opening.text()});
+        try cat(w, &.{ "  ", opening.text(), "\n" });
         for (f.optional_args, 0..) |arg, i| {
             try pad(w, 10);
             try optionalSpec(a, w, arg);
             try w.writeAll(if (i + 1 < f.optional_args.len) ",\n" else "\n");
         }
-        return w.print("        ]) :: {s}\n", .{ret.text()});
+        return cat(w, &.{ "        ]) :: ", ret.text(), "\n" });
     }
     // 4. One argument per line.
-    try w.print("  @spec {s}(\n", .{f.name});
-    for (params.items, 0..) |p, i| try w.print("          {s}{s}\n", .{ p, if (i + 1 < params.items.len) "," else "" });
-    try w.print("        ) :: {s}\n", .{ret.text()});
+    try cat(w, &.{ "  @spec ", f.name, "(\n" });
+    for (params.items, 0..) |p, i| try cat(w, &.{ "          ", p, if (i + 1 < params.items.len) "," else "", "\n" });
+    try cat(w, &.{ "        ) :: ", ret.text(), "\n" });
 }
 
 fn optionalSpec(a: Allocator, w: *Writer, arg: Arg) !void {
-    try w.print("{{:{s}, ", .{arg.name});
+    try cat(w, &.{ "{:", arg.name, ", " });
     try types.spec(a, w, types.nonNull(arg.type));
     try w.writeByte('}');
 }
@@ -265,7 +271,7 @@ fn returnSpec(a: Allocator, w: *Writer, ret: analyzer.Return) !void {
     switch (ret) {
         .lazy => |t| try types.spec(a, w, t),
         .void => try w.writeAll(":ok | {:error, term()}"),
-        .node => |name| try w.print("{{:ok, {s}.t()}} | {{:error, term()}}", .{try naming.module(a, name)}),
+        .node => |name| try cat(w, &.{ "{:ok, ", try naming.module(a, name), ".t()} | {:error, term()}" }),
         inline .leaf, .@"enum", .list_of_enum, .nodes => |t| {
             try w.writeAll("{:ok, ");
             try types.spec(a, w, t);
@@ -284,27 +290,27 @@ fn head(a: Allocator, w: *Writer, f: *const Function) !void {
     if (f.optional_args.len > 0) try params.append(a, "optional_args \\\\ []");
 
     var call = Line.init(a);
-    try call.w().print("def {s}(", .{f.name});
-    for (params.items, 0..) |p, i| try call.w().print("{s}{s}", .{ if (i > 0) ", " else "", p });
+    try cat(call.w(), &.{ "def ", f.name, "(" });
+    for (params.items, 0..) |p, i| try cat(call.w(), &.{ if (i > 0) ", " else "", p });
     try call.w().writeByte(')');
 
     const parts = try guardParts(a, f);
     var guard = Line.init(a);
-    for (parts, 0..) |part, i| try guard.w().print("{s}{s}", .{ if (i > 0) " and " else "", part.text });
+    for (parts, 0..) |part, i| try cat(guard.w(), &.{ if (i > 0) " and " else "", part.text });
 
     // With a guard the whole line, ` do` included, has to fit; without one the
     // formatter measures the head alone.
     const one_line = if (parts.len > 0) 2 + call.text().len + 6 + guard.text().len + 3 else 2 + call.text().len;
     if (one_line <= line_length) {
-        try w.print("  {s}", .{call.text()});
-        if (parts.len > 0) try w.print(" when {s}", .{guard.text()});
+        try cat(w, &.{ "  ", call.text() });
+        if (parts.len > 0) try cat(w, &.{ " when ", guard.text() });
         return w.writeAll(" do\n");
     }
     if (call.fits(2)) {
-        try w.print("  {s}\n", .{call.text()});
+        try cat(w, &.{ "  ", call.text(), "\n" });
     } else {
-        try w.print("  def {s}(\n", .{f.name});
-        for (params.items, 0..) |p, i| try w.print("        {s}{s}\n", .{ p, if (i + 1 < params.items.len) "," else "" });
+        try cat(w, &.{ "  def ", f.name, "(\n" });
+        for (params.items, 0..) |p, i| try cat(w, &.{ "        ", p, if (i + 1 < params.items.len) "," else "", "\n" });
         try w.writeAll("      )");
         if (parts.len == 0) return w.writeAll(" do\n");
         try w.writeByte('\n');
@@ -342,7 +348,7 @@ fn guardParts(a: Allocator, f: *const Function) ![]const GuardPart {
 /// conjunct that does not fit even on a fresh line is an `in` guard whose list
 /// is broken one member per line where it stands.
 fn whenClause(w: *Writer, parts: []const GuardPart, flat: []const u8) !void {
-    if (6 + 5 + flat.len <= line_length) return w.print("      when {s} do\n", .{flat});
+    if (6 + 5 + flat.len <= line_length) return cat(w, &.{ "      when ", flat, " do\n" });
 
     try w.writeAll("      when ");
     var col: usize = 6 + 5;
@@ -360,10 +366,10 @@ fn whenClause(w: *Writer, parts: []const GuardPart, flat: []const u8) !void {
             col += 1;
         }
         if (part.in_values.len > 0 and col + part.text.len > line_length) {
-            try w.print("{s} in [\n", .{part.in_name});
+            try cat(w, &.{ part.in_name, " in [\n" });
             for (part.in_values, 0..) |v, j| {
                 try pad(w, col + 2);
-                try w.print("{s}{s}\n", .{ v, if (j + 1 < part.in_values.len) "," else "" });
+                try cat(w, &.{ v, if (j + 1 < part.in_values.len) "," else "", "\n" });
             }
             try pad(w, col);
             try w.writeByte(']');
@@ -394,22 +400,22 @@ const Entry = struct {
     fn write(e: Entry, w: *Writer, indent: usize, last: bool) !void {
         const comma: []const u8 = if (last) "" else ",";
         if (indent + e.key.len + 2 + e.value.len + comma.len <= line_length) {
-            return w.print("{s}: {s}{s}\n", .{ e.key, e.value, comma });
+            return cat(w, &.{ e.key, ": ", e.value, comma, "\n" });
         }
-        try w.print("{s}:\n", .{e.key});
+        try cat(w, &.{ e.key, ":\n" });
         try pad(w, indent + 2);
-        const cond = e.cond orelse return w.print("{s}{s}\n", .{ e.value, comma });
+        const cond = e.cond orelse return cat(w, &.{ e.value, comma, "\n" });
         // On its own line the value is measured without its trailing comma.
         if (indent + 2 + e.value.len <= line_length) {
-            return w.print("{s}{s}\n", .{ e.value, comma });
+            return cat(w, &.{ e.value, comma, "\n" });
         }
-        try w.print("if({s},\n", .{cond});
+        try cat(w, &.{ "if(", cond, ",\n" });
         try pad(w, indent + 4);
-        try w.print("do: {s},\n", .{e.then});
+        try cat(w, &.{ "do: ", e.then, ",\n" });
         try pad(w, indent + 4);
         try w.writeAll("else: nil\n");
         try pad(w, indent + 2);
-        try w.print("){s}\n", .{comma});
+        try cat(w, &.{ ")", comma, "\n" });
     }
 };
 
@@ -424,27 +430,27 @@ fn pipeline(a: Allocator, w: *Writer, f: *const Function) !void {
     }
 
     var select = Line.init(a);
-    try select.w().print("QB.select(\"{s}\"", .{f.gql_name});
-    for (entries.items) |e| try select.w().print(", {s}: {s}", .{ e.key, e.value });
+    try cat(select.w(), &.{ "QB.select(\"", f.gql_name, "\"" });
+    for (entries.items) |e| try cat(select.w(), &.{ ", ", e.key, ": ", e.value });
     try select.w().writeByte(')');
 
     const nodes = f.@"return" == .nodes;
     var line = Line.init(a);
-    try line.w().print("{s}.query_builder |> {s}{s}", .{ f.self, select.text(), if (nodes) " " ++ select_fields else "" });
-    if (line.fits(6)) return w.print("      {s}\n", .{line.text()});
+    try cat(line.w(), &.{ f.self, ".query_builder |> ", select.text(), if (nodes) " " ++ select_fields else "" });
+    if (line.fits(6)) return cat(w, &.{ "      ", line.text(), "\n" });
 
-    try w.print("      {s}.query_builder\n", .{f.self});
+    try cat(w, &.{ "      ", f.self, ".query_builder\n" });
     if (select.fits(6 + 3)) {
-        try w.print("      |> {s}\n", .{select.text()});
+        try cat(w, &.{ "      |> ", select.text(), "\n" });
     } else {
-        try w.print("      |> QB.select(\"{s}\",\n", .{f.gql_name});
+        try cat(w, &.{ "      |> QB.select(\"", f.gql_name, "\",\n" });
         for (entries.items, 0..) |e, i| {
             try pad(w, 8);
             try e.write(w, 8, i + 1 == entries.items.len);
         }
         try w.writeAll("      )\n");
     }
-    if (nodes) try w.print("      {s}\n", .{select_fields});
+    if (nodes) try cat(w, &.{ "      ", select_fields, "\n" });
 }
 
 // A plain identifier is written bare as a keyword key; anything else is quoted.
@@ -452,7 +458,7 @@ fn argKey(w: *Writer, name: []const u8) !void {
     const plain = name.len > 0 and (std.ascii.isLower(name[0]) or name[0] == '_') and for (name[1..]) |c| {
         if (!(std.ascii.isAlphanumeric(c) or c == '_')) break false;
     } else true;
-    if (plain) try w.writeAll(name) else try w.print("\"{s}\"", .{name});
+    if (plain) try w.writeAll(name) else try cat(w, &.{ "\"", name, "\"" });
 }
 
 fn requiredEntry(a: Allocator, key: []const u8, arg: Arg) !Entry {
@@ -490,7 +496,7 @@ fn execute(a: Allocator, w: *Writer, f: *const Function) !void {
             \\    }}
             \\
         , .{ (try types.module(a, t)).?, self }),
-        .leaf => try w.print("    Client.execute({s}.client, query_builder)\n", .{self}),
+        .leaf => try cat(w, &.{ "    Client.execute(", self, ".client, query_builder)\n" }),
         .void => try caseExecute(w, self, "{:ok, _}", ":ok"),
         .@"enum" => |t| try caseExecute(w, self, "{:ok, enum}", try std.fmt.allocPrint(a, "{{:ok, {s}.from_string(enum)}}", .{(try types.module(a, t)).?})),
         .list_of_enum => |t| try caseExecute(w, self, "{:ok, enums}", try std.fmt.allocPrint(a, "{{:ok, Enum.map(enums, &{s}.from_string/1)}}", .{(try types.module(a, t)).?})),
@@ -517,11 +523,11 @@ fn execute(a: Allocator, w: *Writer, f: *const Function) !void {
 /// error clause. When the ok clause does not fit on one line, the formatter
 /// breaks every clause and separates them with a blank line.
 fn caseExecute(w: *Writer, self: []const u8, pattern: []const u8, body: []const u8) !void {
-    try w.print("    case Client.execute({s}.client, query_builder) do\n", .{self});
+    try cat(w, &.{ "    case Client.execute(", self, ".client, query_builder) do\n" });
     if (6 + pattern.len + " -> ".len + body.len <= line_length) {
-        try w.print("      {s} -> {s}\n      error -> error\n", .{ pattern, body });
+        try cat(w, &.{ "      ", pattern, " -> ", body, "\n      error -> error\n" });
     } else {
-        try w.print("      {s} ->\n        {s}\n\n      error ->\n        error\n", .{ pattern, body });
+        try cat(w, &.{ "      ", pattern, " ->\n        ", body, "\n\n      error ->\n        error\n" });
     }
     try w.writeAll("    end\n");
 }
@@ -530,24 +536,24 @@ fn caseExecute(w: *Writer, self: []const u8, pattern: []const u8, body: []const 
 fn withHead(w: *Writer, self: []const u8, variable: []const u8) !void {
     const fixed = "    with {:ok, } <- Client.execute(.client, query_builder)".len;
     const sep: []const u8 = if (fixed + variable.len + self.len <= line_length) " " else "\n           ";
-    try w.print("    with {{:ok, {s}}} <-{s}Client.execute({s}.client, query_builder) do\n", .{ variable, sep, self });
+    try cat(w, &.{ "    with {:ok, ", variable, "} <-", sep, "Client.execute(", self, ".client, query_builder) do\n" });
 }
 
 /// A struct that resolves back to a node by id, starting at column `indent`
 /// and ending on its closing brace with no newline.
 fn nodeStruct(w: *Writer, indent: usize, module: []const u8, gql_name: []const u8, base: []const u8, client: []const u8, client_suffix: []const u8) !void {
     try pad(w, indent);
-    try w.print("%{s}{{\n", .{module});
+    try cat(w, &.{ "%", module, "{\n" });
     try pad(w, indent + 2);
     try w.writeAll("query_builder:\n");
     for ([_][]const u8{ base, "|> QB.select(\"node\", id: id)" }) |part| {
         try pad(w, indent + 4);
-        try w.print("{s}\n", .{part});
+        try cat(w, &.{ part, "\n" });
     }
     try pad(w, indent + 4);
-    try w.print("|> QB.inline_fragment(\"{s}\"),\n", .{gql_name});
+    try cat(w, &.{ "|> QB.inline_fragment(\"", gql_name, "\"),\n" });
     try pad(w, indent + 2);
-    try w.print("client: {s}{s}\n", .{ client, client_suffix });
+    try cat(w, &.{ "client: ", client, client_suffix, "\n" });
     try pad(w, indent);
     try w.writeByte('}');
 }
@@ -598,7 +604,7 @@ fn protocols(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
 /// `attr"""` heredoc with its body indented to match. Blank lines stay empty.
 fn heredoc(w: *Writer, indent: usize, attr: []const u8, text: []const u8) !void {
     try pad(w, indent);
-    try w.print("{s}\"\"\"\n", .{attr});
+    try cat(w, &.{ attr, "\"\"\"\n" });
     var lines = std.mem.splitScalar(u8, text, '\n');
     while (lines.next()) |l| {
         if (l.len > 0) try pad(w, indent);
@@ -608,7 +614,7 @@ fn heredoc(w: *Writer, indent: usize, attr: []const u8, text: []const u8) !void 
             try w.writeByte('\\');
             rest = rest[i + 1 ..];
         }
-        try w.print("{s}\n", .{rest});
+        try cat(w, &.{ rest, "\n" });
     }
     try pad(w, indent);
     try w.writeAll("\"\"\"\n");

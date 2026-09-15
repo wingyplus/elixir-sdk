@@ -16,7 +16,8 @@ module's dependencies or its required engine version — are owned by the core C
 | --- | --- |
 | `elixir-sdk.dang`, `mod.dang`, `template.dang` | The SDK contract module — `initModule`, `targetRuntime`, and the `@generate` hook |
 | `runtime/` | The module runtime new Elixir modules reference. Build-only; see [its README](./runtime/README.md) |
-| `sdk/` | The Elixir client library (`dagger` on Hex) and its code generator, written in Zig (`sdk/dagger_codegen/`) |
+| `sdk/` | The Elixir client library (`dagger` on Hex) |
+| `codegen/` | The code generator, written in Zig, and the module that tests and publishes it as a prebuilt image. See [its README](./codegen/README.md) |
 | `templates/` | Starter templates for `dagger module init elixir` |
 | `helpers/render-template/` | Go helper that renders a template for a given module name |
 | `.dagger/modules/dev/` | Lint and test tooling for `sdk/` |

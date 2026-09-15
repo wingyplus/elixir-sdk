@@ -169,11 +169,8 @@ fn camelizeInto(a: Allocator, out: *std.ArrayList(u8), input: []const u8) !void 
 pub fn doc(a: Allocator, text: []const u8) ![]const u8 {
     var acc = text;
     var i: usize = 0;
-    while (i < text.len) {
-        if (text[i] != '`') {
-            i += 1;
-            continue;
-        }
+    while (std.mem.indexOfScalarPos(u8, text, i, '`')) |tick| {
+        i = tick;
         var j = i + 1;
         while (j < text.len and std.ascii.isAlphanumeric(text[j])) j += 1;
         if (j == i + 1 or j >= text.len or text[j] != '`') {
