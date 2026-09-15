@@ -1,5 +1,10 @@
 pub description = "Develop the Dagger Elixir SDK"
 
+# Zig release the code generator is built and tested with. Kept in step with the
+# same constants in mod.dang and runtime/main.dang.
+let zigVersion = "0.16.0"
+let zigInstallScript = "set -eu; version=$1; arch=$(uname -m); case \"$arch\" in x86_64) sum=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00;; aarch64) sum=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17;; *) echo \"no Zig $version archive for $arch\" >&2; exit 1;; esac; wget -qO /tmp/zig.tar.xz \"https://ziglang.org/download/$version/zig-$arch-linux-$version.tar.xz\"; echo \"$sum  /tmp/zig.tar.xz\" | sha256sum -c -; mkdir -p /opt/zig; tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1; rm /tmp/zig.tar.xz"
+
 """
 Dev tooling for this repository: lint and test the Elixir client library and its
 codegen project, and keep the pinned Elixir image in step across the Dang modules
@@ -60,32 +65,34 @@ type Dev {
   }
 
   """
-  Run the dagger_codegen test suite. Compiler warnings fail the check.
+  Test the code generator in `sdk/dagger_codegen`: its unit tests, and the
+  snapshot tests that render every fixture and compare the module byte-for-byte
+  with its snapshot.
   """
   pub codegenTest: Void @check {
-    withCodegen(devContainer)
-      .withEnvVariable("CI", "true")
-      .withExec(["mix", "test", "--warnings-as-errors"])
+    codegenContainer
+      .withExec(["/opt/zig/zig", "build", "test", "--summary", "all"])
       .sync
 
     null
   }
 
   """
-  Update dagger_codegen's Mneme snapshots in place.
+  Rewrite the code generator's snapshots from its current output.
+
+  Review the changeset before applying it: every changed line is a change in
+  what `dagger generate` writes.
   """
   pub updateCodegenTests: Changeset! {
-    let before = ws.directory("/", include: [sourcePath + "/dagger_codegen/**"])
+    let snapshots = sourcePath + "/dagger_codegen/test/snapshots"
+    let before = ws.directory("/", include: [snapshots + "/**"])
 
-    let updated = withCodegen(devContainer)
-      .withEnvVariable("MNEME_ACCEPT", "1")
-      .withExec(["mix", "test"])
-      .directory("/src/dagger_codegen")
-      .withoutDirectory("_build")
-      .withoutDirectory("deps")
+    let updated = codegenContainer
+      .withExec(["/opt/zig/zig", "build", "update-snapshots"])
+      .directory("/src/dagger_codegen/test/snapshots")
 
     before
-      .withDirectory(sourcePath + "/dagger_codegen", updated)
+      .withDirectory(snapshots, updated)
       .changes(before)
   }
 
@@ -127,11 +134,14 @@ type Dev {
   }
 
   """
-  Move a container into the dagger_codegen project and fetch its dependencies.
+  Container with Zig installed and the code generator's project as its workdir.
   """
-  let withCodegen(ctr: Container!): Container! {
-    ctr
+  let codegenContainer: Container! {
+    container
+      .from(baseImage)
+      .withExec(["sh", "-c", zigInstallScript, "install-zig", zigVersion])
+      .withMountedCache("/root/.cache/zig", cacheVolume("elixir-sdk-zig"))
+      .withDirectory("/src/dagger_codegen", source.directory("dagger_codegen"))
       .withWorkdir("/src/dagger_codegen")
-      .withExec(["mix", "deps.get"])
   }
 }
