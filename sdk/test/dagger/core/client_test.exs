@@ -1,8 +1,18 @@
 defmodule Dagger.Core.ClientTest do
-  use Dagger.DagCase, async: true
+  use ExUnit.Case, async: true
 
   alias Dagger.Core.Client
   alias Dagger.Core.QueryBuilder, as: QB
+
+  # Connects to a live engine in setup_all.
+  @moduletag :integration
+
+  setup_all do
+    dag = Dagger.connect!(connect_timeout: :timer.seconds(60))
+    on_exit(fn -> Dagger.close(dag) end)
+
+    %{dag: dag}
+  end
 
   describe "execute_all/2" do
     test "return each result in the order of the selections", %{dag: dag} do
