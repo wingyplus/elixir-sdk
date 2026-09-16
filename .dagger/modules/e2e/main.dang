@@ -31,6 +31,17 @@ type E2e {
   let daggerCliVersion: String! = "1.0.0-beta.9"
 
   """
+  Dagger CLI release the generate check is driven with.
+
+  Pinned ahead of `daggerCliVersion` because the SDK-scope config that check
+  synthesizes (`[sdks.<name>.scopes.<path>]`) only exists from v1.0.0-beta.13.
+  The call-driven checks stay on the older release: from beta.13 a fixture's
+  relative `[runtime] source` no longer resolves without a workspace config, and
+  the fixtures deliberately carry none.
+  """
+  let generateCliVersion: String! = "1.0.0-beta.13"
+
+  """
   Black-box runner for a fixture module.
   """
   let fixture(ws: Workspace!, name: String!): ModuleRunner! {
@@ -382,20 +393,23 @@ type E2e {
   module root where the config sits.
 
   Unlike the other checks this one drives `dagger generate` rather than a call
-  against the module: generation is workspace-wide, so the fixture is reached
-  through a synthesized `dagger.toml` that registers this repository as the
-  `elixir` SDK and the fixture as one of its modules. The repository's own
-  `dagger.toml` deliberately lists no fixture.
+  against the module: generation is driven by the engine per SDK scope, so the
+  fixture is reached through a synthesized `dagger.toml` that registers this
+  repository as the `elixir` SDK and the fixture as one of its scopes. The
+  repository's own `dagger.toml` deliberately lists no fixture.
   """
   pub generateSourceSubpathCheck(ws: Workspace!): Void @check {
     let modPath = fixtureRoot + "/split-source"
+    # The whole repository, not just the fixture's context directory: the engine
+    # now loads the SDK module itself to call `generateScope`, so the sources
+    # behind `[modules.elixir-sdk] source = "."` have to be in the mounted view.
+    # Build output is excluded to keep the upload small.
     let runner = ModuleRunner(
       workspaceView: ws
-        .moduleSource("/" + modPath)
-        .contextDirectory
+        .directory("/", exclude: ["sdk/_build", "sdk/deps", "**/.elixir_ls", "**/_build", "**/deps"])
         .withNewFile("dagger.toml", generateWorkspaceToml(modPath)),
       modulePath: modPath,
-      daggerCliVersion: daggerCliVersion,
+      daggerCliVersion: generateCliVersion,
       timeout: "10m",
     )
 
@@ -415,12 +429,16 @@ type E2e {
 
   """
   A workspace registering this repository as the `elixir` SDK and `modPath` as
-  one of its modules — the least `dagger generate` needs to reach a fixture.
+  one of its scopes — the least `dagger generate` needs to reach a fixture.
+
+  The scope table is what the engine walks to decide which `generateScope` calls
+  to make, and `is-module` is what tells it the scope holds a module rather than
+  a client-only directory.
   """
   let generateWorkspaceToml(modPath: String!): String! {
     "[modules.elixir-sdk]\nsource = \".\"\n\n"
-      + "[modules.elixir-sdk.as-sdk]\nname = \"elixir\"\n\n"
-      + "[[modules.elixir-sdk.as-sdk.modules]]\npath = \"" + modPath + "\"\n"
+      + "[sdks.elixir]\nmodule = \"elixir-sdk\"\n\n"
+      + "[sdks.elixir.scopes." + toJSON(modPath) + "]\nis-module = true\n"
   }
 
   """
