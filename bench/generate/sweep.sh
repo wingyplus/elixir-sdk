@@ -14,7 +14,7 @@ cd "$root"
 logs=bench/generate/logs
 mkdir -p "$logs"
 
-printf "%8s  %10s  %14s  %s\n" modules wall generate-all trace
+printf "%8s  %10s  %14s  %s\n" modules wall generate trace
 for n in "$@"; do
   python3 bench/generate/modules.py "$n" --objects "$OBJECTS" >/dev/null
   log="$logs/generate-$n-$OBJECTS.log"
@@ -22,7 +22,9 @@ for n in "$@"; do
   $DAGGER -y --progress=plain generate > "$log" 2>&1
   rc=$?
   wall=$(( ($(date +%s%N) - start) / 1000000 ))
-  span=$(grep -oE "elixir-sdk:generate-all (DONE|CACHED) \[[0-9.]+m?s" "$log" | tail -1 | grep -oE "[0-9.]+m?s$")
+  # First occurrence, not last: generate emits the substantive span and then a
+  # second one for the post-apply re-check, which is always ~0s.
+  span=$(grep -oE "elixir-sdk:generate (DONE|CACHED) \[[0-9.]+m?s" "$log" | head -1 | grep -oE "[0-9.]+m?s$")
   trace=$(grep -oE 'https://dagger.cloud/[^ ]*traces/[0-9a-f]+' "$log" | tail -1)
   [ "$rc" = 0 ] || span="FAILED (rc=$rc, see $log)"
   printf "%8s  %9sms  %14s  %s\n" "$n" "$wall" "$span" "$trace"

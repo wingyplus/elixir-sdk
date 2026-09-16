@@ -6,16 +6,16 @@
     python3 bench/generate/modules.py --clean     # remove them again
 
 The modules land in bench/generate/mods (git-ignored) and are registered in
-dagger.toml under the SDK's as-sdk entries, which is what `dagger generate`
-walks. `--clean` removes both. Every run stamps the sources with a nonce, so the
-engine cannot answer from a previous run's cache.
+dagger.toml as scopes of the elixir SDK, which is what `dagger generate` walks.
+`--clean` removes both. Every run stamps the sources with a nonce, so the engine
+cannot answer from a previous run's cache.
 """
 import argparse, os, re, shutil, time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODS = os.path.join(ROOT, "bench", "generate", "mods")
 TOML = os.path.join(ROOT, "dagger.toml")
-ENTRY = re.compile(r'\n\[\[modules\.elixir-sdk\.as-sdk\.modules\]\]\npath = "bench/generate/mods/[^"]*"\n')
+ENTRY = re.compile(r'\n\[sdks\.elixir\.scopes\."bench/generate/mods/[^"]*"\]\nis-module = true\n')
 
 MIX = '''defmodule {mod}.MixProject do
   use Mix.Project
@@ -106,7 +106,7 @@ end
 def register(paths):
     text = ENTRY.sub("\n", open(TOML).read()).rstrip("\n") + "\n"
     text += "".join(
-        f'\n[[modules.elixir-sdk.as-sdk.modules]]\npath = "{p}"\n' for p in paths
+        f'\n[sdks.elixir.scopes."{p}"]\nis-module = true\n' for p in paths
     )
     open(TOML, "w").write(text)
 
