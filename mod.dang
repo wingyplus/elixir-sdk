@@ -1,7 +1,7 @@
-# Image codegen runs in. Kept in step with the same constant in
-# runtime/main.dang by `dagger call -m .dagger/modules/dev sync-image`, which
-# rewrites both files.
-let elixirImage = "elixir:1.20.2-otp-29-alpine@sha256:c68e45a3840f5cec60b9485cf3af8e82d3d749793a2eb4b442628e6ba9711b6f"
+# Prebuilt code generator image, published from codegen/ by
+# `dagger call codegen publish` and pinned by digest. `dagger call codegen pin`
+# rewrites this constant here and in runtime/main.dang.
+let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.1.0@sha256:778f7f0d8ad7641e261f7c19a86db40fba78195f956cd4319ceccbe993d67909"
 
 """
 A Dagger module that uses the Elixir SDK.
@@ -128,40 +128,20 @@ type Mod {
   }
 
   """
-  The code generator's sources — just enough to compile and run it. Deliberately
-  narrow so the container caches across edits to everything else.
-  """
-  let codegenSourceDir: Directory! {
-    sdkSourceDir
-      .directory("dagger_codegen")
-      .filter(include: ["mix.exs", "mix.lock", ".formatter.exs", "lib/**/*.ex"])
-  }
+  Run the code generator over the module's introspection schema and return the
+  generated API bindings, laid out by the generator itself.
 
-  """
-  Run `mix dagger.codegen` over the module's introspection schema and return the
-  generated API bindings.
+  The generator comes prebuilt from `codegenImage`: a static executable on an
+  otherwise empty image, so nothing is installed or compiled here.
 
   Kept in step with generatedBindings in runtime/main.dang.
   """
   let generatedBindings(introspectionJSON: File!): Directory! {
     container
-      .from(elixirImage)
-      .withExec(["apk", "add", "--no-cache", "git"])
-      .withExec(["mix", "local.hex", "--force"])
-      .withExec(["mix", "local.rebar", "--force"])
-      .withMountedCache("/root/.hex", cacheVolume("elixir-sdk-hex"))
-      # Only the generator's own sources are mounted, not the whole SDK: editing
-      # library sources or codegen tests must not invalidate the layer that
-      # compiles the generator.
-      .withMountedDirectory("/codegen", codegenSourceDir)
-      .withWorkdir("/codegen")
+      .from(codegenImage)
       .withMountedFile("/schema.json", introspectionJSON)
-      # dagger_codegen has no runtime dependencies; --only prod skips fetching
-      # the test-only ones it never uses here.
-      .withExec(["mix", "deps.get", "--only", "prod"])
       .withExec([
-        "mix",
-        "dagger.codegen",
+        "/dagger_codegen",
         "generate",
         "--outdir",
         "/gen",

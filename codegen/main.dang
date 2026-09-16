@@ -1,0 +1,189 @@
+pub description = "Build, test and publish the Elixir SDK's code generator"
+
+# Image the generator is built and tested in.
+let buildImage = "alpine:3.23@sha256:fd791d74b68913cbb027c6546007b3f0d3bc45125f797758156952bc2d6daf40"
+
+# Zig release the generator is built with. The script installs it into /opt/zig,
+# verifying the archive for the engine's architecture against the SHA-256
+# published in https://ziglang.org/download/index.json.
+let zigVersion = "0.16.0"
+let zigInstallScript = "set -eu; version=$1; arch=$(uname -m); case \"$arch\" in x86_64) sum=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00;; aarch64) sum=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17;; *) echo \"no Zig $version archive for $arch\" >&2; exit 1;; esac; wget -qO /tmp/zig.tar.xz \"https://ziglang.org/download/$version/zig-$arch-linux-$version.tar.xz\"; echo \"$sum  /tmp/zig.tar.xz\" | sha256sum -c -; mkdir -p /opt/zig; tar -xJf /tmp/zig.tar.xz -C /opt/zig --strip-components=1; rm /tmp/zig.tar.xz"
+
+"""
+The Elixir SDK's code generator, `dagger_codegen`: a Zig program that renders the
+Elixir API bindings from a Dagger introspection schema.
+
+Users never build it. It is published as a small multi-architecture image, and
+`mod.dang` and `runtime/main.dang` run it from the digest pinned in their
+`codegenImage` constant. `publish` pushes a new image and `pin` points both files
+at it.
+"""
+type Codegen {
+  """
+  Workspace-root-relative path of this module, which is also the Zig project.
+  """
+  pub path: String! = "codegen"
+
+  """
+  The workspace this module belongs to.
+  """
+  let ws: Workspace!
+
+  """
+  The Zig project: build scripts, sources and tests.
+  """
+  pub source: Directory! {
+    currentModule.source.filter(include: ["build.zig", "build.zig.zon", "src/**", "test/**"])
+  }
+
+  """
+  Run the unit tests, and the snapshot tests that render every fixture and
+  compare the module byte-for-byte with its snapshot.
+  """
+  pub test: Void @check {
+    toolchain
+      .withExec(["/opt/zig/zig", "build", "test", "--cache-dir", zigLocalCacheDir, "--summary", "all"])
+      .sync
+
+    null
+  }
+
+  """
+  Run the published-to-be image over this engine's schema and check it lays out
+  the bindings a module compiles against.
+  """
+  pub imageTest: Void @check {
+    let gen = generate(ws.moduleSource("/" + path).introspectionSchemaJSON)
+
+    ["client.ex", "container.ex", "directory.ex"].map { name =>
+      if (gen.exists(name) == false) { raise "generated bindings are missing " + name }
+      null
+    }
+
+    null
+  }
+
+  """
+  Rewrite the snapshots from the generator's current output.
+
+  Review the changeset before applying it: every changed line is a change in
+  what `dagger generate` writes.
+  """
+  pub updateSnapshots: Changeset! {
+    let snapshots = path + "/test/snapshots"
+    let before = ws.directory("/", include: [snapshots + "/**"])
+
+    let updated = toolchain
+      .withExec(["/opt/zig/zig", "build", "update-snapshots", "--cache-dir", zigLocalCacheDir])
+      .directory("/src/test/snapshots")
+
+    before
+      .withDirectory(snapshots, updated)
+      .changes(before)
+  }
+
+  """
+  The generator for one platform (linux/amd64 or linux/arm64): a stripped,
+  statically linked ReleaseFast executable.
+
+  ReleaseFast runs about a fifth faster than ReleaseSafe. The safety checks still
+  run where they catch mistakes: `test` builds the generator in Debug.
+
+  Cross-compiled on the engine's native platform, so both architectures build
+  without emulation.
+  """
+  pub binary(platform: Platform!): File! {
+    let name = toJSON(platform).trimPrefix("\"").trimSuffix("\"")
+    let target = if (name == "linux/amd64") {
+      "x86_64-linux"
+    } else if (name == "linux/arm64") {
+      "aarch64-linux"
+    } else {
+      raise "unsupported platform: " + name
+    }
+
+    toolchain
+      .withExec([
+        "/opt/zig/zig",
+        "build",
+        "-Doptimize=ReleaseFast",
+        "-Dstrip=true",
+        "-Dtarget=" + target,
+        "--cache-dir",
+        zigLocalCacheDir,
+        "--prefix",
+        "/out",
+      ])
+      .file("/out/bin/dagger_codegen")
+  }
+
+  """
+  The generator image for one platform: the executable at /dagger_codegen on an
+  empty filesystem, and nothing else.
+  """
+  pub image(platform: Platform!): Container! {
+    container(platform: platform)
+      .withFile("/dagger_codegen", binary(platform))
+      .withEntrypoint(["/dagger_codegen"])
+  }
+
+  """
+  Publish the generator image for linux/amd64 and linux/arm64 and return its
+  digest-pinned reference, ready for `pin`.
+  """
+  pub publish(address: String!): String! {
+    container.publish(
+      address: address,
+      platformVariants: [image("linux/amd64"), image("linux/arm64")],
+    )
+  }
+
+  """
+  Point `mod.dang` and `runtime/main.dang` at a published generator image.
+
+  `ref` should be pinned by digest, as `publish` returns it.
+  """
+  pub pin(ref: String!): Changeset! {
+    let paths = ["mod.dang", "runtime/main.dang"]
+    let before = ws.directory("/", include: paths)
+
+    paths
+      .reduce(before) { acc, file =>
+        let updated = before.file(file).contents.replaceMatches(
+          `let codegenImage = ".*"`,
+          with: "let codegenImage = \"" + ref + "\"",
+        )
+        acc.withNewFile(file, updated)
+      }
+      .changes(before)
+  }
+
+  """
+  Render the Elixir API bindings for an introspection schema with the generator
+  built from this source, laid out as `lib/dagger/gen`.
+  """
+  pub generate(introspectionJson: File!): Directory! {
+    image(defaultPlatform)
+      .withMountedFile("/schema.json", introspectionJson)
+      .withExec(["/dagger_codegen", "generate", "--outdir", "/gen", "--introspection", "/schema.json"])
+      .directory("/gen")
+  }
+
+  """
+  Zig's local cache, kept on the cache volume rather than in the copied project
+  so a rebuild reuses warm build artifacts.
+  """
+  let zigLocalCacheDir: String! = "/root/.cache/zig/local"
+
+  """
+  Container with Zig installed and the Zig project as its workdir.
+  """
+  let toolchain: Container! {
+    container
+      .from(buildImage)
+      .withExec(["sh", "-c", zigInstallScript, "install-zig", zigVersion])
+      .withMountedCache("/root/.cache/zig", cacheVolume("elixir-sdk-zig"))
+      .withDirectory("/src", source)
+      .withWorkdir("/src")
+  }
+}

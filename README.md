@@ -16,7 +16,8 @@ module's dependencies or its required engine version — are owned by the core C
 | --- | --- |
 | `elixir-sdk.dang`, `mod.dang`, `template.dang` | The SDK contract module — `initModule`, `targetRuntime`, and the `@generate` hook |
 | `runtime/` | The module runtime new Elixir modules reference. Build-only; see [its README](./runtime/README.md) |
-| `sdk/` | The Elixir client library (`dagger` on Hex) and its codegen project |
+| `sdk/` | The Elixir client library (`dagger` on Hex) |
+| `codegen/` | The code generator, written in Zig, and the module that tests and publishes it as a prebuilt image. See [its README](./codegen/README.md) |
 | `templates/` | Starter templates for `dagger module init elixir` |
 | `helpers/render-template/` | Go helper that renders a template for a given module name |
 | `.dagger/modules/dev/` | Lint and test tooling for `sdk/` |
@@ -104,6 +105,13 @@ dagger module engine require-latest
 dagger call -m .dagger/modules/dev lint
 dagger call -m .dagger/modules/dev sdk-test
 dagger call -m .dagger/modules/dev codegen-test
+```
+
+After an intended change to the generated code, rewrite the code generator's snapshots and
+review the changeset:
+
+```sh
+dagger call -m .dagger/modules/dev update-codegen-tests
 ```
 
 Check the SDK against the shared contract suite:

@@ -14,5 +14,8 @@ name = "elixir"
 [modules.dev]
 source = ".dagger/modules/dev"
 
+[modules.codegen]
+source = "codegen"
+
 [modules.sdk-sdk]
 source = "github.com/dagger/sdk-sdk"
