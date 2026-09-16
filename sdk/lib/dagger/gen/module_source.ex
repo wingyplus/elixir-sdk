@@ -794,19 +794,3 @@ defimpl Jason.Encoder, for: Dagger.ModuleSource do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.ModuleSource do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.ModuleSource{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("ModuleSource"),
-       client: dag.client
-     }}
-  end
-end

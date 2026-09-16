@@ -582,21 +582,12 @@ fn protocols(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
         \\  end
         \\end
         \\
-        \\defimpl Nestru.Decoder, for: {0s} do
-        \\  def decode_fields_hint(_struct, _context, id) do
-        \\    alias Dagger.Core.QueryBuilder, as: QB
-        \\    dag = Dagger.Global.dag()
-        \\
-        \\    {{:ok,
-        \\
     , .{
         mod.module,
         mod.variable,
         try idCall(a, mod, fits),
         if (fits) "" else "\n",
     });
-    try nodeStruct(w, 5, mod.module, mod.gql_name, "dag.query_builder", "dag.client", "");
-    try w.writeAll("}\n  end\nend\n");
 }
 
 // -- Documentation -----------------------------------------------------------
