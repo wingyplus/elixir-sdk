@@ -82,8 +82,26 @@ defmodule Dagger.Core.Client do
   the query.
   """
   def execute(client, query_builder) do
-    q = QB.build(query_builder)
+    with {:ok, data} <- run(client, QB.build(query_builder)) do
+      {:ok, select(data, QB.path(query_builder))}
+    end
+  end
 
+  @doc """
+  Like `execute/2`, but sends every one of `query_builders` in a single request.
+
+  Returns their results in the order of `query_builders`, or the first error
+  any of them ran into.
+  """
+  def execute_all(client, [_ | _] = query_builders) do
+    {q, paths} = QB.build_all(query_builders)
+
+    with {:ok, data} <- run(client, q) do
+      {:ok, Enum.map(paths, &select(data, &1))}
+    end
+  end
+
+  defp run(client, q) do
     case query(client, q) do
       {:ok, %Response{errors: [error | _]}} ->
         error =
@@ -100,7 +118,7 @@ defmodule Dagger.Core.Client do
         {:error, error}
 
       {:ok, %Response{data: data}} ->
-        {:ok, select(data, QB.path(query_builder))}
+        {:ok, data}
 
       otherwise ->
         otherwise

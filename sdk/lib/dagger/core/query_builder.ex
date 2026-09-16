@@ -112,6 +112,35 @@ defmodule Dagger.Core.QueryBuilder do
     IO.iodata_to_binary([Enum.intersperse(fields, ?{), :binary.copy("}", depth)])
   end
 
+  @doc """
+  Build one query that selects every one of `selections`, each under an alias
+  of its own, so that they cost a single round-trip.
+
+  Returns the query and, in the order of `selections`, the path to follow
+  through the response to reach each one - `path/1` with the alias in place of
+  the first field.
+  """
+  def build_all([_ | _] = selections) do
+    pattern = escape_pattern()
+
+    {fields, paths} =
+      selections
+      |> Enum.with_index()
+      |> Enum.map(fn {selection, index} ->
+        # A selection is aliased at its first field, the one directly under
+        # `query`, which is also the one its closing braces leave out.
+        {["query" | fields], depth} = build_fields(selection, [], 0, pattern)
+        [_first | path] = path(selection)
+        alias_name = "q#{index}"
+
+        {[alias_name, ?:, Enum.intersperse(fields, ?{), :binary.copy("}", depth - 1)],
+         [alias_name | path]}
+      end)
+      |> Enum.unzip()
+
+    {IO.iodata_to_binary(["query{", Enum.intersperse(fields, ?\s), ?}]), paths}
+  end
+
   defp build_fields(%__MODULE__{prev: nil}, acc, depth, _pattern) do
     {["query" | acc], depth}
   end
