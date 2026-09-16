@@ -9,36 +9,35 @@ defmodule Dagger.Mod.Object.FunctionDef do
 
   @doc """
   Convert a `fun_def` into Dagger Function.
+
+  `docs` are the docs of the module declaring it, from
+  `Dagger.Mod.Object.docs/1`, and `type_ids` the ids of the types it uses, from
+  `Dagger.Mod.Object.TypeDef.resolve/2`.
   """
-  def to_dag_function(%__MODULE__{} = fun_def, name, module, %Dagger.Client{} = dag)
-      when is_atom(name) and is_atom(module) do
+  def to_dag_function(%__MODULE__{} = fun_def, name, docs, type_ids, %Dagger.Client{} = dag)
+      when is_atom(name) do
+    {doc, deprecated} = Map.get(docs.functions, name, {nil, nil})
+
     dag
     |> Dagger.Client.function(
       Dagger.Mod.Helper.camelize(name),
-      Dagger.Mod.Object.TypeDef.define(dag, fun_def.return)
+      Map.fetch!(type_ids, fun_def.return)
     )
-    |> maybe_with_description(Dagger.Mod.Object.get_function_doc(module, name))
+    |> maybe_with_description(doc)
     |> maybe_with_cache_policy(fun_def.cache_policy)
-    |> maybe_with_deprecated(Dagger.Mod.Object.get_function_deprecated(module, name))
+    |> maybe_with_deprecated(deprecated)
     |> maybe_with_check(fun_def.check)
     |> maybe_with_generator(fun_def.generate)
     |> maybe_with_up(fun_def.up)
     |> maybe_with_agent(fun_def.agent)
-    |> with_args(fun_def.args, dag)
+    |> with_args(fun_def.args, type_ids)
   end
 
   @doc """
-  Define a Dagger Function from `fun_def`.
+  The types `fun_def` refers to: its arguments' and its return type.
   """
-  def define(
-        %__MODULE__{} = fun_def,
-        name,
-        module,
-        %Dagger.TypeDef{} = type_def,
-        %Dagger.Client{} = dag
-      )
-      when is_atom(name) and is_atom(module) do
-    Dagger.TypeDef.with_function(type_def, to_dag_function(fun_def, name, module, dag))
+  def types(%__MODULE__{} = fun_def) do
+    [fun_def.return | Enum.map(fun_def.args, fn {_name, arg_def} -> arg_def[:type] end)]
   end
 
   defp maybe_with_deprecated(function, nil), do: function
@@ -78,14 +77,10 @@ defmodule Dagger.Mod.Object.FunctionDef do
   defp maybe_with_description(function, nil), do: function
   defp maybe_with_description(function, doc), do: Dagger.Function.with_description(function, doc)
 
-  defp with_args(fun, args, dag) do
+  defp with_args(fun, args, type_ids) do
     args
     |> Enum.reduce(fun, fn {name, arg_def}, fun ->
-      type = Keyword.fetch!(arg_def, :type)
-
-      type_def =
-        dag
-        |> Dagger.Mod.Object.TypeDef.define(type)
+      type_def = Map.fetch!(type_ids, Keyword.fetch!(arg_def, :type))
 
       opts =
         arg_def

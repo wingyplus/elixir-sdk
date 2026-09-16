@@ -7,14 +7,15 @@ defmodule Dagger.Mod.Object.FieldDef do
   defstruct @enforce_keys ++ [:deprecated]
 
   @doc """
-  Define a Dagger Field from `field_def`.
+  Define a Dagger Field from `field_def`, taking the id of its type from
+  `type_ids`, as `Dagger.Mod.Object.TypeDef.resolve/2` builds it.
   """
-  def define(%__MODULE__{} = field_def, name, type_def, dag) do
+  def define(%__MODULE__{} = field_def, name, type_def, type_ids) do
     type_def
     # The API takes field names as strings; `field` declares them as atoms.
     |> Dagger.TypeDef.with_field(
       to_string(name),
-      Dagger.Mod.Object.TypeDef.define(dag, field_def.type),
+      Map.fetch!(type_ids, field_def.type),
       to_field_opts(field_def)
     )
   end
