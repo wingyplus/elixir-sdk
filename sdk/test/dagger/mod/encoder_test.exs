@@ -23,6 +23,46 @@ defmodule Dagger.Mod.EncoderTest do
       assert is_binary(id)
     end
 
+    test "encode a list of idable modules", %{dag: dag} do
+      containers =
+        for name <- ["a", "b", "a"] do
+          dag |> Dagger.Client.container() |> Dagger.Container.with_env_variable(name, name)
+        end
+
+      assert {:ok, json} = Encoder.validate_and_encode(containers, {:list, Dagger.Container})
+
+      ids =
+        for container <- containers do
+          {:ok, id} = Dagger.Container.id(container)
+          id
+        end
+
+      assert Jason.decode!(json) == ids
+    end
+
+    test "encode an object with an idable field", %{dag: dag} do
+      container = Dagger.Client.container(dag)
+      {:ok, id} = Dagger.Container.id(container)
+
+      assert {:ok, json} =
+               Encoder.validate_and_encode(%ObjectDecodeId{container: container}, ObjectDecodeId)
+
+      assert Jason.decode!(json) == %{"container" => id}
+    end
+
+    test "return the error of an id that cannot be fetched", %{dag: dag} do
+      container = %Dagger.Container{
+        query_builder:
+          Dagger.Core.QueryBuilder.query()
+          |> Dagger.Core.QueryBuilder.select("node", id: "not-an-id")
+          |> Dagger.Core.QueryBuilder.inline_fragment("Container"),
+        client: dag.client
+      }
+
+      assert {:error, %Dagger.Core.GraphQL.Response.Error{}} =
+               Encoder.validate_and_encode(container, Dagger.Container)
+    end
+
     test "encode void type" do
       assert {:ok, "null"} = Encoder.validate_and_encode("hello", Dagger.Void)
       assert {:ok, "null"} = Encoder.validate_and_encode(1, Dagger.Void)
