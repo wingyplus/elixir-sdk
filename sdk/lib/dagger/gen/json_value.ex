@@ -196,19 +196,3 @@ defimpl Jason.Encoder, for: Dagger.JSONValue do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.JSONValue do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.JSONValue{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("JSONValue"),
-       client: dag.client
-     }}
-  end
-end

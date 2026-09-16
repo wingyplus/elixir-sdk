@@ -77,19 +77,3 @@ defimpl Jason.Encoder, for: Dagger.EngineCacheEntrySet do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.EngineCacheEntrySet do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.EngineCacheEntrySet{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("EngineCacheEntrySet"),
-       client: dag.client
-     }}
-  end
-end

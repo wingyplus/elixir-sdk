@@ -44,19 +44,3 @@ defimpl Jason.Encoder, for: Dagger.Sub2 do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.Sub2 do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.Sub2{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("Sub2"),
-       client: dag.client
-     }}
-  end
-end

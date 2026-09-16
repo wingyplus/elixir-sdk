@@ -394,19 +394,3 @@ defimpl Jason.Encoder, for: Dagger.TypeDef do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.TypeDef do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.TypeDef{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("TypeDef"),
-       client: dag.client
-     }}
-  end
-end

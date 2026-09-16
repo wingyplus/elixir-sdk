@@ -26,8 +26,40 @@ defmodule Dagger.Mod.DecoderTest do
       assert {:ok, %Dagger.Container{} = container} =
                Decoder.decode(json(container_id(dag)), Dagger.Container, dag)
 
-      # Ensure the client (`dag`) is passing through the Nestru correctly.
+      # Ensure the client (`dag`) is passed through to the struct.
       assert {:ok, _} = Dagger.Container.sync(container)
+    end
+
+    test "decode struct fields by their declared types", %{dag: dag} do
+      id = container_id(dag)
+
+      assert {:ok,
+              %ObjectDecodeFields{
+                objects: [%ObjectField{name: "a"}, %ObjectField{name: "b"}],
+                containers: [%Dagger.Container{} = container],
+                level: :high,
+                ratio: 2.0,
+                note: nil
+              }} =
+               Decoder.decode(
+                 json(%{
+                   "objects" => [%{"name" => "a"}, %{"name" => "b"}],
+                   "containers" => [id],
+                   "level" => "high",
+                   "ratio" => 2,
+                   "note" => nil,
+                   "unknown" => "ignored"
+                 }),
+                 ObjectDecodeFields,
+                 dag
+               )
+
+      assert {:ok, _} = Dagger.Container.sync(container)
+    end
+
+    test "decode struct with a field of the wrong type", %{dag: dag} do
+      assert {:error, _} =
+               Decoder.decode(json(%{"objects" => [%{"name" => 1}]}), ObjectDecodeFields, dag)
     end
 
     test "decode struct", %{dag: dag} do
