@@ -8,9 +8,6 @@ source = ".dagger/modules/e2e"
 source = "."
 check.skip = ["*"]
 
-[modules.elixir-sdk.as-sdk]
-name = "elixir"
-
 [modules.dev]
 source = ".dagger/modules/dev"
 
@@ -19,3 +16,25 @@ source = "codegen"
 
 [modules.sdk-sdk]
 source = "github.com/dagger/sdk-sdk"
+
+[sdks.elixir]
+module = "elixir-sdk"
+
+[modules.dagger-dang-sdk]
+source = "github.com/dagger/dang-sdk"
+
+[sdks.dang]
+module = "dagger-dang-sdk"
+
+[sdks.dang.scopes."."]
+is-module = true
+name = "elixir-sdk"
+
+[sdks.dang.scopes.".dagger/modules/dev"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/e2e"]
+is-module = true
+
+[sdks.dang.scopes.codegen]
+is-module = true

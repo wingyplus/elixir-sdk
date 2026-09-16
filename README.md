@@ -4,9 +4,10 @@ A Dagger module for managing Dagger modules that use the Elixir SDK, plus the El
 library itself.
 
 SDK-specific module authoring (scaffolding new modules, language build config, codegen)
-lives in modules like this one. Under the CLI 1.0 init contract the engine drives the SDK:
-this module exposes `initModule` and `targetRuntime`, and the engine merges the SDK-owned
-files with its own workspace bookkeeping. Shared, language-agnostic operations — editing a
+lives in modules like this one. Under the CLI 1.0 SDK-module contract the engine drives the
+SDK per *scope*: it owns the scope records and the generation graph, and calls this module's
+`generateScope` once for each scope — the same call whether the module is being created or
+regenerated. Shared, language-agnostic operations — editing a
 module's dependencies or its required engine version — are owned by the core CLI
 (`dagger module deps`, `dagger module engine`) and are not part of this module's surface.
 
@@ -14,7 +15,7 @@ module's dependencies or its required engine version — are owned by the core C
 
 | Path | What it is |
 | --- | --- |
-| `elixir-sdk.dang`, `mod.dang`, `template.dang` | The SDK contract module — `initModule`, `targetRuntime`, and the `@generate` hook |
+| `elixir-sdk.dang`, `mod.dang`, `template.dang` | The SDK contract module — `findClientRoot`, `generateScope`, and `targetRuntime` |
 | `runtime/` | The module runtime new Elixir modules reference. Build-only; see [its README](./runtime/README.md) |
 | `sdk/` | The Elixir client library (`dagger` on Hex) |
 | `codegen/` | The code generator, written in Zig, and the module that tests and publishes it as a prebuilt image. See [its README](./codegen/README.md) |
@@ -42,9 +43,10 @@ dagger module init elixir my-module
 dagger generate
 ```
 
-`initModule` only seeds the SDK-owned template files; the engine writes the module config
-and workspace entries. **Run `generate` afterwards** — a fresh module's `mix.exs` depends on
-`./dagger_sdk`, which generation writes, so it does not compile until then.
+`dagger module init` registers the scope and then calls `generateScope`, which seeds the
+template, writes `dagger-module.toml`, and vendors the SDK in one step — so the module
+compiles straight away. The explicit `dagger generate` above is only needed to pick up later
+schema changes.
 
 Pick a starter with `--template`:
 
@@ -119,6 +121,12 @@ Check the SDK against the shared contract suite:
 ```sh
 dagger -m github.com/dagger/sdk-sdk -W . check
 ```
+
+> **Note:** `sdk-sdk` has not been updated for the CLI 1.0 SDK-module interface. It still
+> checks the superseded `initModule` + `@generate` contract against a pinned v1.0.0-beta.10
+> CLI, and one of its assertions — that an SDK never writes `dagger-module.toml` — is the
+> opposite of what `generateScope` is now required to do. The suite does not pass against
+> this SDK until it is ported upstream.
 
 `sdk/`'s test suite is hermetic by default; tests that need a live engine are tagged
 `:integration` and run with `mix test --include integration`.
