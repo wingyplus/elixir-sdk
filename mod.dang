@@ -68,17 +68,20 @@ type Mod {
   """
   Return `into` with this module's vendored SDK and API bindings applied.
 
-  Staging through the workspace rather than diffing directories is what lets
-  `generateAll` fold several modules together, and hands the changeset's cwd
-  measurement to the engine (the v1.0.0-beta.10 cutover) so a generate driven
-  from a subdirectory lands its files in the right place.
+  Staging through the workspace rather than diffing directories hands the
+  changeset's cwd measurement to the engine, so a generate driven from a
+  subdirectory lands its files in the right place.
 
   Only the output accumulates on `into`. What this module is generated *from* is
-  read from `ws`, the workspace as it was before any module was generated, plus
-  this module's own dependency closure: resolving a module source costs more the
-  more changes are layered on the workspace it is read from, so reading each
-  module through everything generated before it makes generating N modules cost
-  N² instead of N. See `bench/generate`.
+  read from `ws`, the workspace as it was before any module was generated:
+  resolving a module source costs more the more changes are layered on the
+  workspace it is read from, so reading each module through everything generated
+  before it makes generating N modules cost N² instead of N. See
+  `bench/generate`.
+
+  The dependency closure no longer has to be staged here. The engine builds the
+  generation graph and calls `generateScope` for a module's local dependencies
+  before the module itself, so `ws` already carries their bindings.
 
   If the generate skip marker is present, `into` comes back untouched.
   """
@@ -86,17 +89,9 @@ type Mod {
     if (skipGenerate) {
       into
     } else {
-      # Stage this module's local dependency closure first (leaf-first, possibly
-      # across SDKs) so its codegen sees up-to-date dependency bindings. The
-      # closure is generated here, so it does not matter that `ws` carries no
-      # other module's output.
-      #
       # rootPath is workspace-root-relative, so anchor it at "/" before passing it
       # to the cwd-relative Workspace.moduleSource.
-      let stagedWs = ws.withChanges(
-        ws.moduleSource("/" + rootPath).generateLocalDependencies(ws),
-      )
-      let modSource = stagedWs.moduleSource("/" + rootPath)
+      let modSource = ws.moduleSource("/" + rootPath)
       let vendored = vendoredSdk(modSource.introspectionSchemaJSON)
       # Anchored at the module's source directory, not at its root: the two
       # differ when the module config points its source elsewhere, and it is the
@@ -104,8 +99,6 @@ type Mod {
       # and where the runtime looks for it.
       let genPath = "/" + joinPath(joinPath(rootPath, sourceOffset(modSource)), genDir)
 
-      # Applied onto `into`, not `stagedWs`: the dependency codegen staged above
-      # is an input to this module's introspection, never part of its output.
       into.withoutDirectory(genPath).withNewDirectory(genPath, vendored)
     }
   }

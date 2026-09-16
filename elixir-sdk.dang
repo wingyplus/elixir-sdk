@@ -23,6 +23,16 @@ type ElixirSdk {
   pub skipGenerateFilename: String! = ".dagger-elixir-sdk-skip-generate"
 
   """
+  Starter template rendered into a new module: default*, empty.
+
+  `default` is a small working module; `empty` is a bare object module. As an
+  SDK setting this is settable per workspace or per scope, which is how a
+  template reaches `generateScope` now that the engine owns the init call and
+  its signature is fixed.
+  """
+  pub template: String! = "default"
+
+  """
   Runtime source to write into modules created by this SDK.
 
   Elixir has no built-in engine runtime, so new modules point at this
@@ -57,31 +67,108 @@ type ElixirSdk {
   }
 
   """
-  Return every managed Elixir SDK module visible from the client's cwd: the
-  nearest enclosing module plus modules at or below the cwd.
+  Find the Elixir SDK module root that contains `ws.cwd`.
 
-  The engine owns both the list and the cwd policy — `currentModule.asSDK`
-  returns the modules registered to this SDK that sit at or below the client's
-  cwd, plus the nearest enclosing one when the cwd is not itself registered — so
-  running from a subdirectory acts on the project you are in, and the projects
-  beneath it. Paths come back workspace-root-relative, the currency
-  `Mod.rootPath` uses.
-
-  A module is registered by the directory holding its config, so one whose
-  source points elsewhere is listed at its config path and not from inside its
-  own source tree. Address those by path (see `mod`).
+  The engine uses this to decide which scope a command run from a subdirectory
+  belongs to. Returns a workspace-root-relative parent of `ws.cwd`, or null when
+  the cwd is not inside a module this SDK owns.
   """
-  pub modules(ws: Workspace!): [Mod!]! {
-    currentModule
-      .asSDK(workspace: ws)
-      .modules.{{path}}
-      .map { module =>
-        Mod(
-          rootPath: normalizePath(module.path),
-          ws: ws,
-          skipGenerateFilename: skipGenerateFilename,
-        )
+  pub findClientRoot(ws: Workspace!): String {
+    let foundToml = ws.findUp("dagger-module.toml")
+    let foundJson = ws.findUp("dagger.json")
+    let tomlBase = if (foundToml == null) { null } else { configDir(foundToml, "dagger-module.toml") }
+    let jsonBase = if (foundJson == null) { null } else { configDir(foundJson, "dagger.json") }
+
+    # The nearest config wins when a partially migrated tree holds both.
+    if (tomlBase != null and pathDepth(tomlBase) >= pathDepth(jsonBase)) {
+      if (usesElixirSdk(ws, tomlBase, "dagger-module.toml", tomlConfigPattern)) { tomlBase } else { null }
+    } else if (jsonBase != null) {
+      if (usesElixirSdk(ws, jsonBase, "dagger.json", legacyConfigPattern)) { jsonBase } else { null }
+    } else {
+      null
+    }
+  }
+
+  """
+  Generate one Elixir SDK scope.
+
+  `ws.cwd` is the scope the engine persisted for this SDK. A scope without a
+  `dagger-module.toml` is a module being created: the selected template is
+  rendered into it and a manifest pointing at this SDK's runtime is written
+  before generation. An existing manifest is left alone, so a module keeps
+  whatever dependencies and engine version it already declares.
+
+  Generation itself vendors the Elixir SDK and the API bindings generated from
+  the module's own schema into `<module source>/dagger_sdk`. The engine orders
+  the calls, generating a module's local dependencies before the module itself.
+
+  If the generate skip marker is present at or above the scope, the scope is
+  left untouched.
+  """
+  pub generateScope(
+    ws: Workspace!,
+    isModule: Boolean!,
+    name: String!,
+    clients: [ModuleSource!]!,
+  ): Workspace! {
+    if (clients.length > 0) {
+      raise "the Elixir SDK does not generate standalone clients yet; " +
+        "remove the client target from this scope"
+    } else if (!isModule) {
+      ws
+    } else {
+      let initialized = if (exists(ws, "dagger-module.toml")) {
+        ws
+      } else {
+        initializedModule(ws, name)
       }
+
+      Mod(
+        rootPath: normalizePath(ws.cwd),
+        ws: initialized,
+        skipGenerateFilename: skipGenerateFilename,
+      ).generatedWorkspace(initialized)
+    }
+  }
+
+  """
+  Seed a new module in `ws.cwd`: the selected template plus the manifest naming
+  this SDK's runtime.
+
+  The engine validates that a `dagger-module.toml` exists at the scope once
+  `generateScope` returns, so unlike the legacy `initModule` path this writes it
+  rather than leaving it to the engine.
+  """
+  let initializedModule(ws: Workspace!, name: String!): Workspace! {
+    let selectedTemplate = if (template == "") { "default" } else { template }
+
+    if (currentModule.source.exists("templates/" + selectedTemplate) == false) {
+      raise "unknown init template: " + template
+    } else {
+      ws
+        .withDirectory(".", renderedTemplate(name, selectedTemplate))
+        .withNewFile("dagger-module.toml", moduleManifest(name))
+    }
+  }
+
+  """
+  The manifest written for a module this SDK creates.
+
+  Elixir has no engine-bundled runtime, so `[runtime] source` names this
+  repository's build-only runtime module rather than a short name.
+  """
+  let moduleManifest(name: String!): String! {
+    "name = " + JSON.encode(name) + "\n" +
+      "engineVersion = \"v1.0.0-0\"\n\n" +
+      "[runtime]\n" +
+      "  source = " + JSON.encode(targetRuntime) + "\n"
+  }
+
+  """
+  Whether a path exists relative to `ws.cwd`.
+  """
+  let exists(ws: Workspace!, path: String!): Boolean! {
+    ws.directory(".", include: [path]).exists(path)
   }
 
   """
@@ -117,65 +204,6 @@ type ElixirSdk {
   }
 
   """
-  Initialize Elixir-owned files for a new Dagger module.
-
-  Returns a Changeset with only the SDK-owned template files layered onto the
-  new module's `path`. Engine-owned files (dagger-module.toml, workspace config
-  updates) are produced by the engine and merged with this changeset.
-
-  Pass `template` to pick a starter under templates/<template>. It defaults to
-  `default` (a small working module). Use `empty` for a bare object module. An
-  explicitly empty template also selects `default` for compatibility.
-
-  The new module does not compile until `dagger generate` runs: its `mix.exs`
-  depends on `./dagger_sdk`, which generation writes.
-  """
-  pub initModule(
-    ws: Workspace!,
-    name: String!,
-    path: String!,
-    """
-    Template to use to init the module: default*, empty
-    """
-    template: String! = "default",
-  ): Changeset! {
-    let rawPath = path.trimPrefix("./").trimPrefix("/")
-
-    let modPath = if (rawPath == "" or rawPath == ".") {
-      "."
-    } else if (rawPath == ".." or rawPath.trimPrefix("../") != rawPath) {
-      raise "path escapes workspace: " + rawPath
-    } else {
-      rawPath.trimSuffix("/")
-    }
-
-    let selectedTemplate = if (template == "") { "default" } else { template }
-
-    if (currentModule.source.exists("templates/" + selectedTemplate) == false) {
-      raise "unknown init template: " + template
-    } else {
-      # Workspace.withNewDirectory replaces the overlay entry at its path, so
-      # anything already sitting at modPath has to be carried over explicitly —
-      # otherwise init reports those files removed, which the SDK contract
-      # forbids.
-      let scope = if (modPath == ".") { "**" } else { modPath + "/**" }
-      let root = ws.directory("/", include: [scope])
-      let rendered = renderedTemplate(name, selectedTemplate)
-      let source = if (root.exists(modPath)) {
-        root.directory(modPath).withDirectory(".", rendered)
-      } else {
-        rendered
-      }
-
-      # `modPath` is workspace-root-relative, so anchor it at "/": a relative
-      # workspace path resolves from ws.cwd and would be prefixed a second time
-      # when initModule is called directly from a subdirectory rather than
-      # driven by the engine.
-      ws.withNewDirectory("/" + modPath, source).changes(ws)
-    }
-  }
-
-  """
   Render an Elixir template with the requested module name.
   """
   let renderedTemplate(name: String!, templateName: String!): Directory! {
@@ -192,22 +220,6 @@ type ElixirSdk {
       .directory("/rendered")
   }
 
-  """
-  Generate every managed Elixir SDK module visible from the client's cwd.
-
-  Modules with the generate skip marker are skipped.
-  """
-  pub generateAll(ws: Workspace!): Changeset! @generate {
-    # Each module generates onto the workspace the previous one produced, so the
-    # results accumulate by overlay and one diff at the end carries them all.
-    # Folding per-module changesets instead would mean measuring each one against
-    # `ws` — past the cwd cutover the engine measures those from the cwd, which
-    # is not the frame Workspace.withChanges applies them in.
-    modules(ws)
-      .reduce(ws) { stagedWs, mod => mod.generatedWorkspace(stagedWs) }
-      .changes(ws)
-  }
-
   let normalizePath(path: String!): String! {
     let normalized = path.trimPrefix("./").trimPrefix("/").trimSuffix("/")
     if (normalized == "") { "." } else { normalized }
@@ -221,14 +233,27 @@ type ElixirSdk {
     normalizePath(path.trimPrefix("/").trimSuffix(filename))
   }
 
-  let validateConfig(ws: Workspace!, base: String!, filename: String!, pattern: String!, requestedPath: String!): String! {
+  """
+  Whether the module config at `base` declares this SDK's runtime.
+
+  A missing or unreadable config counts as a foreign module rather than an
+  error: `findClientRoot` has to answer for any cwd the user runs from.
+  """
+  let usesElixirSdk(ws: Workspace!, base: String!, filename: String!, pattern: String!): Boolean! {
     let configPath = if (base == ".") { filename } else { base + "/" + filename }
-    let matches = ws
+    ws
       .directory("/", include: [configPath])
       .file(configPath)
       .search(pattern: pattern, multiline: true, dotall: true, limit: 1)
       .{{id}}
-      .length > 0
-    if (matches) { base } else { raise "Dagger module does not use the Elixir SDK: " + requestedPath }
+      .length > 0 rescue { err: Error => false }
+  }
+
+  let validateConfig(ws: Workspace!, base: String!, filename: String!, pattern: String!, requestedPath: String!): String! {
+    if (usesElixirSdk(ws, base, filename, pattern)) {
+      base
+    } else {
+      raise "Dagger module does not use the Elixir SDK: " + requestedPath
+    }
   }
 }

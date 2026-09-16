@@ -33,8 +33,9 @@ generate` has not run (or its output was not committed) — `moduleRuntime` buil
 equivalent `dagger_sdk/` on the fly: it vendors the SDK sources (pulled into this module's
 context by the `../sdk` include patterns in `dagger-module.toml`) and generates the API bindings
 from the engine-provided introspection schema. This keeps a freshly-initialized module
-loadable, which `dagger generate` itself relies on: the engine loads every workspace module
-to discover generators before the SDK's `@generate` hook can write `dagger_sdk/`.
+loadable, which `dagger generate` itself relies on: the engine has to load a module to read
+the schema it generates against, and for a new module that happens before `generateScope`
+has written `dagger_sdk/`.
 
 `moduleRuntime` declares `introspectionJson` as **required** on purpose. The engine skips
 computing the introspection schema for runtimes that declare it optional (trusting committed
@@ -43,12 +44,15 @@ files instead); requiring it is what makes the on-the-fly fallback possible.
 ## What owns code generation
 
 Code generation lives in this repository's root Dang module (`elixir-sdk.dang` / `mod.dang`)
-and runs at `dagger generate` time. Modules commit the generated files; the on-the-fly path
-above is only a fallback for modules that have not been generated yet, and never writes to
-the workspace.
+and runs when the engine calls the SDK's `generateScope` — during `dagger module init` and
+again on `dagger generate`. Modules commit the generated files; the on-the-fly path above is
+only a fallback for modules that have not been generated yet, and never writes to the
+workspace.
 
-`codegen` here is an intentional no-op (it returns the module source unchanged): the SDK
-runtime contract still includes it, but generation is owned by `generate`.
+`codegen` here is an intentional no-op (it returns the module source unchanged): the module
+*runtime* contract still includes it, but generation is owned by the SDK module's
+`generateScope`. The two are separate contracts — this directory implements the runtime that
+loads an Elixir module, while `elixir-sdk.dang` implements the workspace SDK module.
 
 `vendoredSdk` / `generatedBindings` in `main.dang` are kept in step with the same functions
 in `mod.dang`, which produce the committed `dagger_sdk/` at generate time.
