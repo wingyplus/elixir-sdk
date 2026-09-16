@@ -70,3 +70,17 @@ defmodule ObjectDecodeId do
     field(:container, Dagger.Container.t())
   end
 end
+
+defmodule ObjectDecodeFields do
+  @moduledoc false
+
+  use Dagger.Mod.Object, name: "ObjectDecodeFields"
+
+  object do
+    field(:objects, [ObjectField.t()])
+    field(:containers, [Dagger.Container.t()])
+    field(:level, SimpleEnum.t())
+    field(:ratio, float())
+    field(:note, String.t() | nil)
+  end
+end

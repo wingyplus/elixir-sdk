@@ -264,7 +264,6 @@ defmodule Dagger.Mod.Object do
   defmacro __before_compile__(env) do
     quote do
       unquote(object_table(env))
-      unquote(decoder(env))
     end
   end
 
@@ -292,26 +291,6 @@ defmodule Dagger.Mod.Object do
 
   defp declared(module, attribute) do
     module |> Module.get_attribute(attribute) |> Enum.reverse()
-  end
-
-  defp decoder(env) do
-    if Module.get_attribute(env.module, :struct_declared) do
-      required_fields = Module.get_attribute(env.module, :required_fields) || []
-      optional_fields = Module.get_attribute(env.module, :optional_fields) || []
-      fields = required_fields ++ optional_fields
-      fields = Macro.escape(fields)
-
-      quote do
-        defimpl Nestru.Decoder do
-          def decode_fields_hint(_empty_struct, _context, _value) do
-            {:ok, Dagger.Mod.Object.decoder_hint(unquote(fields))}
-          end
-        end
-      end
-    else
-      quote do
-      end
-    end
   end
 
   defmacro __using__(opts) do
@@ -483,37 +462,7 @@ defmodule Dagger.Mod.Object do
       @derive Jason.Encoder
       @enforce_keys Keyword.keys(required_fields)
       defstruct fields |> Keyword.keys() |> Enum.sort()
-
-      @struct_declared true
     end
-  end
-
-  def decoder_hint(fields) do
-    fields
-    |> Enum.filter(&only_module/1)
-    |> Enum.into(%{}, fn {name, field_def} ->
-      type =
-        case field_def.type do
-          {:list, type} -> type
-          {:optional, type} -> type
-          type -> type
-        end
-
-      {name, type}
-    end)
-  end
-
-  defp only_module({_, field_def}) do
-    case field_def.type do
-      {:list, type} -> module?(type)
-      {:optional, type} -> module?(type)
-      type -> module?(type)
-    end
-  end
-
-  defp module?(type) do
-    {:module, ^type} = Code.ensure_loaded(type)
-    function_exported?(type, :__struct__, 0)
   end
 
   @doc """

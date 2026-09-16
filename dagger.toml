@@ -38,3 +38,6 @@ is-module = true
 
 [sdks.dang.scopes.codegen]
 is-module = true
+
+[sdks.elixir.scopes."bench/commands/mods/bench"]
+is-module = true
