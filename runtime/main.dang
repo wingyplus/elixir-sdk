@@ -7,6 +7,22 @@ let elixirImage = "elixir:1.20.1-otp-29-alpine@sha256:f50894ff69b0d07b310fe9c97b
 # rewrites this constant here and in mod.dang.
 let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.1.0@sha256:778f7f0d8ad7641e261f7c19a86db40fba78195f956cd4319ceccbe993d67909"
 
+# Mix's dependencies and build output live on a cache volume, outside the
+# source tree, so a rebuild picks up where the last one stopped.
+let mixCachePath = "/mix"
+
+# The compiled applications a call runs, copied out of the cache volume.
+let buildPath = "/opt/dagger-module"
+
+# The script every call starts the module through.
+let entrypointPath = "/usr/local/bin/dagger-module-entrypoint"
+
+# Fetches and compiles in one Mix VM, copies the compiled applications to $1,
+# and writes $2: `elixir` with every application on the code path (through
+# ERL_LIBS) and the consolidated protocols ahead of them, which is the code path
+# `mix run` would set up, without starting Mix.
+let buildScript = "set -eu; mix do deps.get --only prod + compile; rm -rf \"$1\"; mkdir -p \"$1\"; cp -RL \"$MIX_BUILD_ROOT/$MIX_ENV/lib\" \"$1/lib\"; pa=''; for dir in \"$1\"/lib/*/consolidated; do if [ -d \"$dir\" ]; then pa=\"$pa -pa $dir\"; fi; done; printf '#!/bin/sh\\nexport ERL_LIBS=%s\\nexec elixir%s \"$@\"\\n' \"$1/lib\" \"$pa\" > \"$2\"; chmod +x \"$2\""
+
 """
 Runtime module for the Elixir SDK.
 
@@ -44,6 +60,21 @@ type ElixirSdkRuntime {
   `introspectionJson` and overlaid before compiling; `dagger generate` remains
   what writes it to the workspace.
 
+  `deps` and `_build` live on a cache volume for this module (see `mixCache`),
+  outside the source tree, so a rebuild after an edit leaves it to Mix's own
+  staleness tracking to decide what to recompile: usually the module's changed
+  files, not the vendored SDK and its dependencies. (A layer cannot do that
+  here: a layer built from the source minus `lib/` is still invalidated by an
+  edit to `lib/`.) The volume is locked for the duration of a build, and the
+  compiled applications are copied out of it, so calls never read a volume
+  another build is writing.
+
+  Every call — the module's registration included — starts `elixir` on the
+  compiled code rather than going through Mix: one VM instead of two and no
+  compile check, which cuts the start-up of each call from about 510ms to 140ms.
+  A release would start as fast but strips the documentation chunks the SDK
+  reads function descriptions from.
+
   `introspectionJson` is deliberately required: the engine only provides it to
   runtimes that do not declare it optional, and it is what makes an ungenerated
   module loadable.
@@ -68,22 +99,38 @@ type ElixirSdkRuntime {
     let workdir = Path(modSourceDirPath).join(Path(subPath)).string
 
     baseContainer(container)
+      .withEnvVariable("MIX_ENV", "prod")
+      .withEnvVariable("MIX_DEPS_PATH", mixCachePath + "/deps")
+      .withEnvVariable("MIX_BUILD_ROOT", mixCachePath + "/_build")
+      .withEnvVariable("HEX_CACERTS_PATH", "/etc/ssl/certs/ca-certificates.crt")
+      .withMountedCache(mixCachePath, mixCache(modSource), sharing: CacheSharingMode.LOCKED)
       .withMountedDirectory(modSourceDirPath, sourceDir)
       .withWorkdir(workdir)
-      .withEnvVariable("MIX_ENV", "prod")
-      .withEnvVariable("HEX_CACERTS_PATH", "/etc/ssl/certs/ca-certificates.crt")
-      .withExec(["mix", "deps.get", "--only", "prod"])
-      .withExec(["mix", "deps.compile"])
-      .withExec(["mix", "compile"])
-      .withEntrypoint([
-        "mix",
-        "cmd",
-        "--cd",
-        workdir,
-        "mix",
-        "dagger.entrypoint.invoke",
-        toElixirModuleName(modName),
-      ])
+      .withExec(["sh", "-c", buildScript, "build", buildPath, entrypointPath])
+      .withoutMount(mixCachePath)
+      .withEntrypoint([entrypointPath, "-e", invokeExpression(workdir, toElixirModuleName(modName))])
+  }
+
+  """
+  The cache volume holding a module's `deps` and `_build`, named after where its
+  source comes from as well as its name.
+
+  Mix notices an edit from a file's mtime and size, so two copies of one module
+  sharing a volume (two checkouts of a repository, say) could leave a changed
+  file of the same size and an older mtime uncompiled. A local source is told
+  apart by its path on the host, a git source by its commit, and any other source
+  by the digest of its content.
+  """
+  let mixCache(modSource: ModuleSource!): CacheVolume! {
+    let kind = modSource.kind
+    let origin = if (kind == ModuleSourceKind.LOCAL_SOURCE or kind == ModuleSourceKind.LOCAL) {
+      modSource.localContextDirectoryPath + ":" + modSource.sourceSubpath
+    } else if (kind == ModuleSourceKind.GIT_SOURCE or kind == ModuleSourceKind.GIT) {
+      modSource.asString + "@" + modSource.commit
+    } else {
+      modSource.digest
+    }
+    cacheVolume("elixir-sdk-module-" + modSource.moduleName + "-" + origin)
   }
 
   """
@@ -149,6 +196,27 @@ type ElixirSdkRuntime {
       .withExec(["mix", "local.hex", "--force"])
       .withExec(["mix", "local.rebar", "--force"])
   }
+}
+
+"""
+The expression every call evaluates: what the SDK's `dagger.entrypoint.invoke`
+Mix task does, without Mix.
+
+The engine starts a call in its own working directory, so the expression first
+moves to the module's `workdir`, where the Mix task used to run (`mix cmd --cd`),
+and applies the module's `config/config.exs` from there, as Mix would have
+loaded it. Only `Dagger.Mod.invoke/1` is called, so this works with a
+`dagger_sdk/` vendored by an older SDK.
+"""
+let invokeExpression(workdir: String!, module: String!): String! {
+  "File.cd!(\"" + workdir + "\")\n" +
+    "if File.regular?(\"config/config.exs\") do\n" +
+    "  Application.put_all_env(Config.Reader.read!(\"config/config.exs\", env: :prod, target: :host), persistent: true)\n" +
+    "end\n" +
+    "Application.ensure_all_started(:dagger)\n" +
+    "module = Module.concat(String.split(\"" + module + "\", \".\"))\n" +
+    "Code.ensure_loaded?(module) || raise(\"Cannot find module \" <> inspect(module))\n" +
+    "Dagger.Mod.invoke(module)"
 }
 
 """

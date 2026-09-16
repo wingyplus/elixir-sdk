@@ -12,9 +12,18 @@ dispatcher itself. The actual Elixir build still runs in an `elixir:*-alpine` co
 
 It **fetches dependencies, compiles, and sets the entrypoint** for an Elixir module.
 
-`moduleRuntime` mounts the module, runs `mix deps.get --only prod` → `mix deps.compile` →
-`mix compile`, and returns a container whose entrypoint is
-`mix dagger.entrypoint.invoke <ModuleName>`.
+`moduleRuntime` mounts the module and runs `mix do deps.get --only prod + compile` in one Mix
+VM. `deps` and `_build` live on a cache volume for the module (keyed by its host path for a
+local source, by its commit for a remote one), so a rebuild after an edit compiles only what
+Mix finds stale — usually the module's own changed files, not the vendored SDK. The compiled
+applications are then copied out of the volume.
+
+Calls do not go through Mix. The entrypoint starts `elixir` with the compiled applications on
+the code path, applies the module's `config/config.exs`, and calls `Dagger.Mod.invoke/1`,
+which is what the SDK's `dagger.entrypoint.invoke` Mix task does. That is one VM instead of
+two and no compile check: about 140ms to start instead of 510ms, for the registration call and
+for every function call. (A release starts as fast, but strips the documentation chunks the
+SDK reads function descriptions from.)
 
 Modules are self-contained: the Elixir SDK is vendored as source under `<module>/dagger_sdk/`
 and `mix.exs` depends on it by path, so `mix deps.get` only fetches third-party dependencies.
