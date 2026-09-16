@@ -73,6 +73,13 @@ type Mod {
   measurement to the engine (the v1.0.0-beta.10 cutover) so a generate driven
   from a subdirectory lands its files in the right place.
 
+  Only the output accumulates on `into`. What this module is generated *from* is
+  read from `ws`, the workspace as it was before any module was generated, plus
+  this module's own dependency closure: resolving a module source costs more the
+  more changes are layered on the workspace it is read from, so reading each
+  module through everything generated before it makes generating N modules cost
+  N² instead of N. See `bench/generate`.
+
   If the generate skip marker is present, `into` comes back untouched.
   """
   pub generatedWorkspace(into: Workspace!): Workspace! {
@@ -80,12 +87,14 @@ type Mod {
       into
     } else {
       # Stage this module's local dependency closure first (leaf-first, possibly
-      # across SDKs) so its codegen sees up-to-date dependency bindings.
+      # across SDKs) so its codegen sees up-to-date dependency bindings. The
+      # closure is generated here, so it does not matter that `ws` carries no
+      # other module's output.
       #
       # rootPath is workspace-root-relative, so anchor it at "/" before passing it
       # to the cwd-relative Workspace.moduleSource.
-      let stagedWs = into.withChanges(
-        into.moduleSource("/" + rootPath).generateLocalDependencies(into),
+      let stagedWs = ws.withChanges(
+        ws.moduleSource("/" + rootPath).generateLocalDependencies(ws),
       )
       let modSource = stagedWs.moduleSource("/" + rootPath)
       let vendored = vendoredSdk(modSource.introspectionSchemaJSON)
