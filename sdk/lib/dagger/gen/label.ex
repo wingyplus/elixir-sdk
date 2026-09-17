@@ -49,9 +49,9 @@ defmodule Dagger.Label do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Label do
-  def encode(label, opts) do
+defimpl JSON.Encoder, for: Dagger.Label do
+  def encode(label, encoder) do
     {:ok, id} = Dagger.Label.id(label)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

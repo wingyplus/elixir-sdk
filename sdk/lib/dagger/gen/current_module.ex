@@ -160,9 +160,9 @@ defmodule Dagger.CurrentModule do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.CurrentModule do
-  def encode(current_module, opts) do
+defimpl JSON.Encoder, for: Dagger.CurrentModule do
+  def encode(current_module, encoder) do
     {:ok, id} = Dagger.CurrentModule.id(current_module)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

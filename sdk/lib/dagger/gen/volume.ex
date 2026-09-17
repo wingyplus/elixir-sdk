@@ -27,9 +27,9 @@ defmodule Dagger.Volume do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Volume do
-  def encode(volume, opts) do
+defimpl JSON.Encoder, for: Dagger.Volume do
+  def encode(volume, encoder) do
     {:ok, id} = Dagger.Volume.id(volume)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

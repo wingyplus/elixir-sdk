@@ -190,9 +190,9 @@ defmodule Dagger.JSONValue do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.JSONValue do
-  def encode(json_value, opts) do
+defimpl JSON.Encoder, for: Dagger.JSONValue do
+  def encode(json_value, encoder) do
     {:ok, id} = Dagger.JSONValue.id(json_value)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

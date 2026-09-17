@@ -223,9 +223,9 @@ defmodule Dagger.Changeset do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Changeset do
-  def encode(changeset, opts) do
+defimpl JSON.Encoder, for: Dagger.Changeset do
+  def encode(changeset, encoder) do
     {:ok, id} = Dagger.Changeset.id(changeset)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

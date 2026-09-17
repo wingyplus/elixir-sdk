@@ -13,7 +13,7 @@ defmodule Dagger.Mod.Encoder do
     end
   end
 
-  # A Dagger object is returned as its id, which its `Jason.Encoder` fetches
+  # A Dagger object is returned as its id, which its `JSON.Encoder` fetches
   # with a round-trip of its own - one for every object in a list, or in the
   # fields of a returned object. The ids of all of them are fetched together
   # instead, and put in their place before encoding.
@@ -123,6 +123,8 @@ defmodule Dagger.Mod.Encoder do
   end
 
   defp encode(value) do
-    Jason.encode(value)
+    {:ok, JSON.encode!(value)}
+  rescue
+    exception in [Protocol.UndefinedError, ErlangError] -> {:error, exception}
   end
 end

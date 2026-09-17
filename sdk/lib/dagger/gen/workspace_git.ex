@@ -55,9 +55,9 @@ defmodule Dagger.WorkspaceGit do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.WorkspaceGit do
-  def encode(workspace_git, opts) do
+defimpl JSON.Encoder, for: Dagger.WorkspaceGit do
+  def encode(workspace_git, encoder) do
     {:ok, id} = Dagger.WorkspaceGit.id(workspace_git)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

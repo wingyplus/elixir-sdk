@@ -24,7 +24,7 @@ defimpl Dagger.Sync, for: Any do
   end
 
   def sync(value) do
-    # Borrowing from `:jason` library.
+    # Borrowing from `JSON.Encoder`.
     raise Protocol.UndefinedError,
       protocol: @protocol,
       value: value,

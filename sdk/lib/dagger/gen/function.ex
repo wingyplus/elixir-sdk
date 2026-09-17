@@ -271,9 +271,9 @@ defmodule Dagger.Function do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Function do
-  def encode(function, opts) do
+defimpl JSON.Encoder, for: Dagger.Function do
+  def encode(function, encoder) do
     {:ok, id} = Dagger.Function.id(function)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

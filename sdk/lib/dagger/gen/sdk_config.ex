@@ -49,9 +49,9 @@ defmodule Dagger.SDKConfig do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.SDKConfig do
-  def encode(sdk_config, opts) do
+defimpl JSON.Encoder, for: Dagger.SDKConfig do
+  def encode(sdk_config, encoder) do
     {:ok, id} = Dagger.SDKConfig.id(sdk_config)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

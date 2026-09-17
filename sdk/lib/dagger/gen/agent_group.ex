@@ -66,9 +66,9 @@ defmodule Dagger.AgentGroup do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.AgentGroup do
-  def encode(agent_group, opts) do
+defimpl JSON.Encoder, for: Dagger.AgentGroup do
+  def encode(agent_group, encoder) do
     {:ok, id} = Dagger.AgentGroup.id(agent_group)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

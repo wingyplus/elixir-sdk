@@ -88,9 +88,9 @@ defmodule Dagger.Up do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Up do
-  def encode(up, opts) do
+defimpl JSON.Encoder, for: Dagger.Up do
+  def encode(up, encoder) do
     {:ok, id} = Dagger.Up.id(up)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -575,10 +575,10 @@ fn protocols(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
     const fits = "    {:ok, id} = .id()".len + mod.module.len + mod.variable.len <= line_length;
     try w.print(
         \\
-        \\defimpl Jason.Encoder, for: {0s} do
-        \\  def encode({1s}, opts) do
+        \\defimpl JSON.Encoder, for: {0s} do
+        \\  def encode({1s}, encoder) do
         \\    {{:ok, id}} ={2s}
-        \\{3s}    Jason.Encode.string(id, opts)
+        \\{3s}    encoder.(id, encoder)
         \\  end
         \\end
         \\

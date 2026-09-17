@@ -277,9 +277,9 @@ defmodule Dagger.File do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.File do
-  def encode(file, opts) do
+defimpl JSON.Encoder, for: Dagger.File do
+  def encode(file, encoder) do
     {:ok, id} = Dagger.File.id(file)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

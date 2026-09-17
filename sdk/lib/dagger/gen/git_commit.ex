@@ -213,9 +213,9 @@ defmodule Dagger.GitCommit do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.GitCommit do
-  def encode(git_commit, opts) do
+defimpl JSON.Encoder, for: Dagger.GitCommit do
+  def encode(git_commit, encoder) do
     {:ok, id} = Dagger.GitCommit.id(git_commit)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

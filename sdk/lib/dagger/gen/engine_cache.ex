@@ -112,9 +112,9 @@ defmodule Dagger.EngineCache do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.EngineCache do
-  def encode(engine_cache, opts) do
+defimpl JSON.Encoder, for: Dagger.EngineCache do
+  def encode(engine_cache, encoder) do
     {:ok, id} = Dagger.EngineCache.id(engine_cache)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

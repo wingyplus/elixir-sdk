@@ -37,7 +37,7 @@ defmodule Dagger.Mod.EncoderTest do
           id
         end
 
-      assert Jason.decode!(json) == ids
+      assert JSON.decode!(json) == ids
     end
 
     test "encode an object with an idable field", %{dag: dag} do
@@ -47,7 +47,7 @@ defmodule Dagger.Mod.EncoderTest do
       assert {:ok, json} =
                Encoder.validate_and_encode(%ObjectDecodeId{container: container}, ObjectDecodeId)
 
-      assert Jason.decode!(json) == %{"container" => id}
+      assert JSON.decode!(json) == %{"container" => id}
     end
 
     test "return the error of an id that cannot be fetched", %{dag: dag} do

@@ -38,9 +38,9 @@ defmodule Dagger.Sub1 do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Sub1 do
-  def encode(sub1, opts) do
+defimpl JSON.Encoder, for: Dagger.Sub1 do
+  def encode(sub1, encoder) do
     {:ok, id} = Dagger.Sub1.id(sub1)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -27,9 +27,9 @@ defmodule Dagger.Socket do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Socket do
-  def encode(socket, opts) do
+defimpl JSON.Encoder, for: Dagger.Socket do
+  def encode(socket, encoder) do
     {:ok, id} = Dagger.Socket.id(socket)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

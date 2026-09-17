@@ -1600,9 +1600,9 @@ defmodule Dagger.Container do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Container do
-  def encode(container, opts) do
+defimpl JSON.Encoder, for: Dagger.Container do
+  def encode(container, encoder) do
     {:ok, id} = Dagger.Container.id(container)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

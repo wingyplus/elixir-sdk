@@ -110,9 +110,9 @@ defmodule Dagger.FunctionCall do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.FunctionCall do
-  def encode(function_call, opts) do
+defimpl JSON.Encoder, for: Dagger.FunctionCall do
+  def encode(function_call, encoder) do
     {:ok, id} = Dagger.FunctionCall.id(function_call)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

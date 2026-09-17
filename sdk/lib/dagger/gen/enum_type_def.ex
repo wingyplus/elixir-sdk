@@ -121,9 +121,9 @@ defmodule Dagger.EnumTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.EnumTypeDef do
-  def encode(enum_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.EnumTypeDef do
+  def encode(enum_type_def, encoder) do
     {:ok, id} = Dagger.EnumTypeDef.id(enum_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

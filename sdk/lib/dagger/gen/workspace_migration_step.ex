@@ -74,9 +74,9 @@ defmodule Dagger.WorkspaceMigrationStep do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.WorkspaceMigrationStep do
-  def encode(workspace_migration_step, opts) do
+defimpl JSON.Encoder, for: Dagger.WorkspaceMigrationStep do
+  def encode(workspace_migration_step, encoder) do
     {:ok, id} = Dagger.WorkspaceMigrationStep.id(workspace_migration_step)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

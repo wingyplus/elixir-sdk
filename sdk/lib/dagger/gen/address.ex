@@ -186,9 +186,9 @@ defmodule Dagger.Address do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Address do
-  def encode(address, opts) do
+defimpl JSON.Encoder, for: Dagger.Address do
+  def encode(address, encoder) do
     {:ok, id} = Dagger.Address.id(address)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

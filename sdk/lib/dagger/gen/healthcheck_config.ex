@@ -104,9 +104,9 @@ defmodule Dagger.HealthcheckConfig do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.HealthcheckConfig do
-  def encode(healthcheck_config, opts) do
+defimpl JSON.Encoder, for: Dagger.HealthcheckConfig do
+  def encode(healthcheck_config, encoder) do
     {:ok, id} = Dagger.HealthcheckConfig.id(healthcheck_config)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

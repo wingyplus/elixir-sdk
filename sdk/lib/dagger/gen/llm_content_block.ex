@@ -107,9 +107,9 @@ defmodule Dagger.LLMContentBlock do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.LLMContentBlock do
-  def encode(llm_content_block, opts) do
+defimpl JSON.Encoder, for: Dagger.LLMContentBlock do
+  def encode(llm_content_block, encoder) do
     {:ok, id} = Dagger.LLMContentBlock.id(llm_content_block)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

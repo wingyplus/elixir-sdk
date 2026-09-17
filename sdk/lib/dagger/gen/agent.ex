@@ -74,9 +74,9 @@ defmodule Dagger.Agent do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Agent do
-  def encode(agent, opts) do
+defimpl JSON.Encoder, for: Dagger.Agent do
+  def encode(agent, encoder) do
     {:ok, id} = Dagger.Agent.id(agent)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

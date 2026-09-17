@@ -38,9 +38,9 @@ defmodule Dagger.Cloud do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Cloud do
-  def encode(cloud, opts) do
+defimpl JSON.Encoder, for: Dagger.Cloud do
+  def encode(cloud, encoder) do
     {:ok, id} = Dagger.Cloud.id(cloud)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end
