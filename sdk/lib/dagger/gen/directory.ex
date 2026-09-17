@@ -664,9 +664,9 @@ defmodule Dagger.Directory do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Directory do
-  def encode(directory, opts) do
+defimpl JSON.Encoder, for: Dagger.Directory do
+  def encode(directory, encoder) do
     {:ok, id} = Dagger.Directory.id(directory)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

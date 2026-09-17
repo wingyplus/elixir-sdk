@@ -15,7 +15,7 @@ defmodule Dagger.Mod.Decoder do
   end
 
   def decode(value, type, dag) do
-    with {:ok, value} <- Jason.decode(value) do
+    with {:ok, value} <- JSON.decode(value) do
       cast(value, type, dag)
     end
   end

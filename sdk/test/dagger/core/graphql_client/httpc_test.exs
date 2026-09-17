@@ -20,15 +20,15 @@ defmodule Dagger.Core.GraphQLClient.HttpcTest do
   end
 
   test "return the response body as a binary", %{url: url, headers: headers} do
-    body = Jason.encode!(%{query: "query{version}", variables: %{}})
+    body = JSON.encode!(%{query: "query{version}", variables: %{}})
 
     assert {:ok, 200, response} = Httpc.request(url, body, headers, [])
     assert is_binary(response)
-    assert %{"data" => %{"version" => _}} = Jason.decode!(response)
+    assert %{"data" => %{"version" => _}} = JSON.decode!(response)
   end
 
   test "queue no request behind another one", %{url: url, headers: headers} do
-    body = Jason.encode!(%{query: "query{version}", variables: %{}})
+    body = JSON.encode!(%{query: "query{version}", variables: %{}})
     {:ok, 200, _} = Httpc.request(url, body, headers, [])
 
     assert {:ok, options} =

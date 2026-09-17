@@ -63,9 +63,9 @@ defmodule Dagger.InputTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.InputTypeDef do
-  def encode(input_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.InputTypeDef do
+  def encode(input_type_def, encoder) do
     {:ok, id} = Dagger.InputTypeDef.id(input_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

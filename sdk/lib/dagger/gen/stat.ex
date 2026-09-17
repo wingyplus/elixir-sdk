@@ -74,9 +74,9 @@ defmodule Dagger.Stat do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Stat do
-  def encode(stat, opts) do
+defimpl JSON.Encoder, for: Dagger.Stat do
+  def encode(stat, encoder) do
     {:ok, id} = Dagger.Stat.id(stat)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

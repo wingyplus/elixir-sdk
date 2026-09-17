@@ -82,9 +82,9 @@ defmodule Dagger.CurrentModuleAsSDK do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.CurrentModuleAsSDK do
-  def encode(current_module_as_sdk, opts) do
+defimpl JSON.Encoder, for: Dagger.CurrentModuleAsSDK do
+  def encode(current_module_as_sdk, encoder) do
     {:ok, id} = Dagger.CurrentModuleAsSDK.id(current_module_as_sdk)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

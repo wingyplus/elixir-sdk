@@ -27,9 +27,9 @@ defmodule Dagger.HTTPState do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.HTTPState do
-  def encode(http_state, opts) do
+defimpl JSON.Encoder, for: Dagger.HTTPState do
+  def encode(http_state, encoder) do
     {:ok, id} = Dagger.HTTPState.id(http_state)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

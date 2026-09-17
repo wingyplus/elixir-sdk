@@ -24,9 +24,9 @@ defmodule Dagger.Node do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Node do
-  def encode(node, opts) do
+defimpl JSON.Encoder, for: Dagger.Node do
+  def encode(node, encoder) do
     {:ok, id} = Dagger.Node.id(node)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

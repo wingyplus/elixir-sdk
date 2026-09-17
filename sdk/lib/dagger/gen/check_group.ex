@@ -77,9 +77,9 @@ defmodule Dagger.CheckGroup do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.CheckGroup do
-  def encode(check_group, opts) do
+defimpl JSON.Encoder, for: Dagger.CheckGroup do
+  def encode(check_group, encoder) do
     {:ok, id} = Dagger.CheckGroup.id(check_group)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

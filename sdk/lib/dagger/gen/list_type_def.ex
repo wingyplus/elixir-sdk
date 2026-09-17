@@ -41,9 +41,9 @@ defmodule Dagger.ListTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.ListTypeDef do
-  def encode(list_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.ListTypeDef do
+  def encode(list_type_def, encoder) do
     {:ok, id} = Dagger.ListTypeDef.id(list_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -1756,9 +1756,9 @@ defmodule Dagger.Env do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Env do
-  def encode(env, opts) do
+defimpl JSON.Encoder, for: Dagger.Env do
+  def encode(env, encoder) do
     {:ok, id} = Dagger.Env.id(env)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

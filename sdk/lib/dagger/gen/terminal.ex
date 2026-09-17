@@ -49,9 +49,9 @@ defmodule Dagger.Terminal do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Terminal do
-  def encode(terminal, opts) do
+defimpl JSON.Encoder, for: Dagger.Terminal do
+  def encode(terminal, encoder) do
     {:ok, id} = Dagger.Terminal.id(terminal)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

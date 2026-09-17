@@ -20,7 +20,7 @@ defmodule ReqAdapter.MixProject do
   defp deps do
     [
       {:dagger, path: "./dagger_sdk"},
-      {:req, "~> 0.6"}
+      {:req, "~> 0.8.0-rc.0"}
     ]
   end
 end

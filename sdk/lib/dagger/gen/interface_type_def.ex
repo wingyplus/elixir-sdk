@@ -96,9 +96,9 @@ defmodule Dagger.InterfaceTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.InterfaceTypeDef do
-  def encode(interface_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.InterfaceTypeDef do
+  def encode(interface_type_def, encoder) do
     {:ok, id} = Dagger.InterfaceTypeDef.id(interface_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

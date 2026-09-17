@@ -93,9 +93,9 @@ defmodule Dagger.SearchResult do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.SearchResult do
-  def encode(search_result, opts) do
+defimpl JSON.Encoder, for: Dagger.SearchResult do
+  def encode(search_result, encoder) do
     {:ok, id} = Dagger.SearchResult.id(search_result)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

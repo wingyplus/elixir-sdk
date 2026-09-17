@@ -459,7 +459,7 @@ defmodule Dagger.Mod.Object do
       # TODO: convert fields into typespec.
       @type t() :: %__MODULE__{}
 
-      @derive Jason.Encoder
+      @derive JSON.Encoder
       @enforce_keys Keyword.keys(required_fields)
       defstruct fields |> Keyword.keys() |> Enum.sort()
     end

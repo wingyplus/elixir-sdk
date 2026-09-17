@@ -60,9 +60,9 @@ defmodule Dagger.Secret do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Secret do
-  def encode(secret, opts) do
+defimpl JSON.Encoder, for: Dagger.Secret do
+  def encode(secret, encoder) do
     {:ok, id} = Dagger.Secret.id(secret)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end
