@@ -796,9 +796,9 @@ defmodule Dagger.Workspace do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Workspace do
-  def encode(workspace, opts) do
+defimpl JSON.Encoder, for: Dagger.Workspace do
+  def encode(workspace, encoder) do
     {:ok, id} = Dagger.Workspace.id(workspace)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

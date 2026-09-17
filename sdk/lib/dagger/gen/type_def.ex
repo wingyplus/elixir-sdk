@@ -388,9 +388,9 @@ defmodule Dagger.TypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.TypeDef do
-  def encode(type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.TypeDef do
+  def encode(type_def, encoder) do
     {:ok, id} = Dagger.TypeDef.id(type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

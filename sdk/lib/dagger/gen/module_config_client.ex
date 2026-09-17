@@ -49,9 +49,9 @@ defmodule Dagger.ModuleConfigClient do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.ModuleConfigClient do
-  def encode(module_config_client, opts) do
+defimpl JSON.Encoder, for: Dagger.ModuleConfigClient do
+  def encode(module_config_client, encoder) do
     {:ok, id} = Dagger.ModuleConfigClient.id(module_config_client)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

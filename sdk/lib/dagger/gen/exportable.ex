@@ -34,9 +34,9 @@ defmodule Dagger.Exportable do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Exportable do
-  def encode(exportable, opts) do
+defimpl JSON.Encoder, for: Dagger.Exportable do
+  def encode(exportable, encoder) do
     {:ok, id} = Dagger.Exportable.id(exportable)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -63,9 +63,9 @@ defmodule Dagger.UpGroup do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.UpGroup do
-  def encode(up_group, opts) do
+defimpl JSON.Encoder, for: Dagger.UpGroup do
+  def encode(up_group, encoder) do
     {:ok, id} = Dagger.UpGroup.id(up_group)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

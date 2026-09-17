@@ -174,9 +174,9 @@ defmodule Dagger.GitRef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.GitRef do
-  def encode(git_ref, opts) do
+defimpl JSON.Encoder, for: Dagger.GitRef do
+  def encode(git_ref, encoder) do
     {:ok, id} = Dagger.GitRef.id(git_ref)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

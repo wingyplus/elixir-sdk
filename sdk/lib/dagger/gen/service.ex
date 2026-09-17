@@ -180,9 +180,9 @@ defmodule Dagger.Service do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Service do
-  def encode(service, opts) do
+defimpl JSON.Encoder, for: Dagger.Service do
+  def encode(service, encoder) do
     {:ok, id} = Dagger.Service.id(service)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

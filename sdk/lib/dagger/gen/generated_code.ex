@@ -91,9 +91,9 @@ defmodule Dagger.GeneratedCode do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.GeneratedCode do
-  def encode(generated_code, opts) do
+defimpl JSON.Encoder, for: Dagger.GeneratedCode do
+  def encode(generated_code, encoder) do
     {:ok, id} = Dagger.GeneratedCode.id(generated_code)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -509,9 +509,9 @@ defmodule Dagger.LLM do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.LLM do
-  def encode(llm, opts) do
+defimpl JSON.Encoder, for: Dagger.LLM do
+  def encode(llm, encoder) do
     {:ok, id} = Dagger.LLM.id(llm)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

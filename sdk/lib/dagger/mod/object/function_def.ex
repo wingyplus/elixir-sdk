@@ -97,7 +97,7 @@ defmodule Dagger.Mod.Object.FunctionDef do
   defp normalize_arg_option({:doc, doc}), do: {:description, doc}
 
   defp normalize_arg_option({:default, default_value}),
-    do: {:default_value, Jason.encode!(default_value)}
+    do: {:default_value, JSON.encode!(default_value)}
 
   defp normalize_arg_option(opt), do: opt
 end

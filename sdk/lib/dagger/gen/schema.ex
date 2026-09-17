@@ -53,9 +53,9 @@ defmodule Dagger.Schema do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Schema do
-  def encode(schema, opts) do
+defimpl JSON.Encoder, for: Dagger.Schema do
+  def encode(schema, encoder) do
     {:ok, id} = Dagger.Schema.id(schema)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -60,9 +60,9 @@ defmodule Dagger.SearchSubmatch do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.SearchSubmatch do
-  def encode(search_submatch, opts) do
+defimpl JSON.Encoder, for: Dagger.SearchSubmatch do
+  def encode(search_submatch, encoder) do
     {:ok, id} = Dagger.SearchSubmatch.id(search_submatch)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -27,9 +27,9 @@ defmodule Dagger.RemoteGitMirror do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.RemoteGitMirror do
-  def encode(remote_git_mirror, opts) do
+defimpl JSON.Encoder, for: Dagger.RemoteGitMirror do
+  def encode(remote_git_mirror, encoder) do
     {:ok, id} = Dagger.RemoteGitMirror.id(remote_git_mirror)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

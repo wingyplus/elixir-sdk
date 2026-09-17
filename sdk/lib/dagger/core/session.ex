@@ -46,7 +46,7 @@ defmodule Dagger.Session do
 
         result =
           String.split(log_line, "\n", trim: true)
-          |> Enum.map(&Jason.decode/1)
+          |> Enum.map(&JSON.decode/1)
           |> Enum.find(fn
             {:ok, _} -> true
             {:error, _} -> false

@@ -90,9 +90,9 @@ defmodule Dagger.FieldTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.FieldTypeDef do
-  def encode(field_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.FieldTypeDef do
+  def encode(field_type_def, encoder) do
     {:ok, id} = Dagger.FieldTypeDef.id(field_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

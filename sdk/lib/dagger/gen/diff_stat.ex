@@ -85,9 +85,9 @@ defmodule Dagger.DiffStat do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.DiffStat do
-  def encode(diff_stat, opts) do
+defimpl JSON.Encoder, for: Dagger.DiffStat do
+  def encode(diff_stat, encoder) do
     {:ok, id} = Dagger.DiffStat.id(diff_stat)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

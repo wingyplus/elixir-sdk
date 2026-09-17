@@ -63,9 +63,9 @@ defmodule Dagger.Engine do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Engine do
-  def encode(engine, opts) do
+defimpl JSON.Encoder, for: Dagger.Engine do
+  def encode(engine, encoder) do
     {:ok, id} = Dagger.Engine.id(engine)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

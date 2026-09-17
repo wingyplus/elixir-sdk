@@ -74,9 +74,9 @@ defmodule Dagger.Error do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Error do
-  def encode(error, opts) do
+defimpl JSON.Encoder, for: Dagger.Error do
+  def encode(error, encoder) do
     {:ok, id} = Dagger.Error.id(error)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

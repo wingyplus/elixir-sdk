@@ -172,9 +172,9 @@ defmodule Dagger.GitRepository do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.GitRepository do
-  def encode(git_repository, opts) do
+defimpl JSON.Encoder, for: Dagger.GitRepository do
+  def encode(git_repository, encoder) do
     {:ok, id} = Dagger.GitRepository.id(git_repository)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

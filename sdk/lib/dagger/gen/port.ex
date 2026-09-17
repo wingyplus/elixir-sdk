@@ -74,9 +74,9 @@ defmodule Dagger.Port do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Port do
-  def encode(port, opts) do
+defimpl JSON.Encoder, for: Dagger.Port do
+  def encode(port, encoder) do
     {:ok, id} = Dagger.Port.id(port)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end
