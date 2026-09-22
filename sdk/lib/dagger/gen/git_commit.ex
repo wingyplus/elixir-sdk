@@ -219,19 +219,3 @@ defimpl Jason.Encoder, for: Dagger.GitCommit do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.GitCommit do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.GitCommit{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("GitCommit"),
-       client: dag.client
-     }}
-  end
-end

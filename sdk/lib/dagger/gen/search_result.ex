@@ -99,19 +99,3 @@ defimpl Jason.Encoder, for: Dagger.SearchResult do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.SearchResult do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.SearchResult{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("SearchResult"),
-       client: dag.client
-     }}
-  end
-end

@@ -116,19 +116,3 @@ defimpl Jason.Encoder, for: Dagger.FunctionCall do
     Jason.Encode.string(id, opts)
   end
 end
-
-defimpl Nestru.Decoder, for: Dagger.FunctionCall do
-  def decode_fields_hint(_struct, _context, id) do
-    alias Dagger.Core.QueryBuilder, as: QB
-    dag = Dagger.Global.dag()
-
-    {:ok,
-     %Dagger.FunctionCall{
-       query_builder:
-         dag.query_builder
-         |> QB.select("node", id: id)
-         |> QB.inline_fragment("FunctionCall"),
-       client: dag.client
-     }}
-  end
-end
