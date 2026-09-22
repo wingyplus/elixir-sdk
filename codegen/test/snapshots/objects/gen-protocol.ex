@@ -251,7 +251,7 @@ defmodule Dagger.Module do
   This module plus the given Enum type and associated values
   """
   @spec with_enum(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-  def with_enum(%__MODULE__{} = module, enum) when is_struct(enum) do
+  def with_enum(%__MODULE__{} = module, %Dagger.TypeDef{} = enum) do
     query_builder =
       module.query_builder |> QB.select("withEnum", enum: Dagger.ID.id!(enum))
 
@@ -265,7 +265,7 @@ defmodule Dagger.Module do
   This module plus the given Interface type and associated functions
   """
   @spec with_interface(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-  def with_interface(%__MODULE__{} = module, iface) when is_struct(iface) do
+  def with_interface(%__MODULE__{} = module, %Dagger.TypeDef{} = iface) do
     query_builder =
       module.query_builder |> QB.select("withInterface", iface: Dagger.ID.id!(iface))
 
@@ -279,7 +279,7 @@ defmodule Dagger.Module do
   This module plus the given Object type and associated functions.
   """
   @spec with_object(t(), Dagger.TypeDef.t()) :: Dagger.Module.t()
-  def with_object(%__MODULE__{} = module, object) when is_struct(object) do
+  def with_object(%__MODULE__{} = module, %Dagger.TypeDef{} = object) do
     query_builder =
       module.query_builder |> QB.select("withObject", object: Dagger.ID.id!(object))
 

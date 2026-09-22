@@ -22,8 +22,13 @@ defmodule Dagger.Directory do
           {:gitignore, boolean()},
           {:owner, String.t()}
         ]) :: Dagger.Directory.t()
-  def with_directory(%__MODULE__{} = directory, path, source, optional_args \\ [])
-      when is_binary(path) and is_struct(source) do
+  def with_directory(
+        %__MODULE__{} = directory,
+        path,
+        %Dagger.Directory{} = source,
+        optional_args \\ []
+      )
+      when is_binary(path) do
     query_builder =
       directory.query_builder
       |> QB.select("withDirectory",

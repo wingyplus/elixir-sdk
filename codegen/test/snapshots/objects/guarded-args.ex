@@ -36,15 +36,15 @@ defmodule Dagger.Container do
         expand,
         config,
         args,
-        source,
+        %Dagger.Directory{} = source,
         object,
         sharing,
         at,
         optional_args \\ []
       )
       when is_binary(name) and is_integer(count) and is_boolean(expand) and is_binary(config) and
-             is_list(args) and is_struct(source) and is_struct(object) and
-             sharing in [:SHARED, :PRIVATE, :LOCKED] and is_struct(at, DateTime) do
+             is_list(args) and is_struct(object) and sharing in [:SHARED, :PRIVATE, :LOCKED] and
+             is_struct(at, DateTime) do
     query_builder =
       container.query_builder
       |> QB.select("withEverything",

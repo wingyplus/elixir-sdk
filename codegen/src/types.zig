@@ -146,11 +146,8 @@ pub fn guard(a: Allocator, t: Type) !Guard {
         .datetime => .{ .is_struct = "DateTime" },
         .list => .{ .call = "is_list" },
         .@"enum" => .@"enum",
-        .input => |name| .{ .@"struct" = try naming.module(a, name) },
-        // Objects and interfaces travel through `Dagger.ID`, which more than the
-        // type's own struct implements (the SDK passes pre-fetched ids), so the
-        // guard only asks for a struct.
-        .object, .interface => .{ .call = "is_struct" },
+        .object, .input => |name| .{ .@"struct" = try naming.module(a, name) },
+        .interface => .{ .call = "is_struct" },
         else => .none,
     };
 }
