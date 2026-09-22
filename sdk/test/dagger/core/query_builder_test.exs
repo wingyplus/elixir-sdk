@@ -198,6 +198,45 @@ defmodule Dagger.Core.QueryBuilderTest do
     end
   end
 
+  describe "build_all/1" do
+    test "alias every selection and return the path to each" do
+      container =
+        QB.query()
+        |> QB.select("container")
+        |> QB.select("withExec", args: ["echo"])
+        |> QB.select("stdout")
+
+      type_def =
+        QB.query()
+        |> QB.select("typeDef")
+        |> QB.select("withKind", kind: :STRING_KIND)
+        |> QB.select("id")
+
+      assert QB.build_all([container, type_def]) ==
+               {~s|query{q0:container{withExec(args:["echo"]){stdout}} | <>
+                  "q1:typeDef{withKind(kind:STRING_KIND){id}}}",
+                [["q0", "withExec", "stdout"], ["q1", "withKind", "id"]]}
+    end
+
+    test "alias a selection of a single field" do
+      selection = QB.query() |> QB.select("version")
+
+      assert QB.build_all([selection]) == {"query{q0:version}", [["q0"]]}
+    end
+
+    test "keep arguments on the aliased field and leaf field sets" do
+      selection =
+        QB.query()
+        |> QB.select("container", platform: "linux/amd64")
+        |> QB.select("envVariables")
+        |> QB.select_fields(["name", "value"])
+
+      assert QB.build_all([selection]) ==
+               {~s|query{q0:container(platform:"linux/amd64"){envVariables{name value}}}|,
+                [["q0", "envVariables"]]}
+    end
+  end
+
   describe "path/1" do
     test "return the selected field names, ignoring inline fragments" do
       q =

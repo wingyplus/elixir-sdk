@@ -208,14 +208,7 @@ defmodule Dagger.Mod.Object do
 
   Return `{:deprecated, reason}` or `nil` if the module did not specify `@moduledoc deprecated: "reason"`
   """
-  def get_module_deprecated(module) do
-    with {_, metadatas, _} <- fetch_docs(module),
-         %{deprecated: reason} <- metadatas do
-      {:deprecated, reason}
-    else
-      _ -> nil
-    end
-  end
+  def get_module_deprecated(module), do: docs(module).deprecated
 
   @doc """
   Get function deprecation reason if deprecated from docs or attribute
@@ -223,19 +216,7 @@ defmodule Dagger.Mod.Object do
   Return `{:deprecated, reason}` or `nil` if the function did not specify `@deprecated reason` attributes or `@doc deprecated: "reason" docstring`
   """
   def get_function_deprecated(module, func_name) do
-    fun = fn
-      {{:function, ^func_name, _}, _, _, _, _} -> true
-      _ -> false
-    end
-
-    with {_, _, func_docs} <- fetch_docs(module),
-         {{:function, ^func_name, _}, _, _, _, metadatas} <- Enum.find(func_docs, fun),
-         %{deprecated: reason} <- metadatas do
-      {:deprecated, reason}
-    else
-      _ ->
-        nil
-    end
+    module |> docs() |> function_docs(func_name) |> elem(1)
   end
 
   @doc """
@@ -244,16 +225,7 @@ defmodule Dagger.Mod.Object do
   Returns module doc string or `nil` if the given module didn't have a documentation.
   """
   @spec get_module_doc(module()) :: String.t() | nil
-  def get_module_doc(module) do
-    with {module_doc, _, _} <- fetch_docs(module),
-         %{"en" => doc} <- module_doc do
-      String.trim(doc)
-    else
-      :none -> nil
-      :hidden -> nil
-      {:error, :module_not_found} -> nil
-    end
-  end
+  def get_module_doc(module), do: docs(module).doc
 
   @doc """
   Get function documentation.
@@ -262,28 +234,67 @@ defmodule Dagger.Mod.Object do
   """
   @spec get_function_doc(module(), function_name()) :: String.t() | nil
   def get_function_doc(module, name) do
-    fun = fn
-      {{:function, ^name, _}, _, _, _, _} -> true
-      _ -> false
-    end
-
-    with {_, _, function_docs} <- fetch_docs(module),
-         {{:function, ^name, _}, _, _, doc_content, _} <- Enum.find(function_docs, fun),
-         %{"en" => doc} <- doc_content do
-      String.trim(doc)
-    else
-      nil -> nil
-      :none -> nil
-      :hidden -> nil
-    end
+    module |> docs() |> function_docs(name) |> elem(0)
   end
 
-  defp fetch_docs(module) do
-    {:docs_v1, _, :elixir, _, module_doc, metadatas, function_docs} = Code.fetch_docs(module)
-    {module_doc, metadatas, function_docs}
+  defp function_docs(docs, name), do: Map.get(docs.functions, name, {nil, nil})
+
+  @doc false
+  # Everything registration reads from the documentation of `module`, which
+  # `Code.fetch_docs/1` reads from the module's .beam file each time it is
+  # called: the module's doc and deprecation, and each function's, by name.
+  def docs(module) do
+    {:docs_v1, _, :elixir, _, module_doc, metadata, function_docs} = Code.fetch_docs(module)
+
+    functions =
+      for {{:function, name, _}, _, _, doc, metadata} <- Enum.reverse(function_docs),
+          into: %{},
+          # Reversed, so that the first entry of a name is the one kept.
+          do: {name, {doc_text(doc), deprecated(metadata)}}
+
+    %{doc: doc_text(module_doc), deprecated: deprecated(metadata), functions: functions}
   end
+
+  defp doc_text(%{"en" => doc}), do: String.trim(doc)
+  defp doc_text(_none_or_hidden), do: nil
+
+  defp deprecated(%{deprecated: reason}), do: {:deprecated, reason}
+  defp deprecated(_metadata), do: nil
 
   defmacro __before_compile__(env) do
+    quote do
+      unquote(object_table(env))
+      unquote(decoder(env))
+    end
+  end
+
+  # The declarations, read from the attributes they accumulate in while the
+  # module compiles and written into the module as constants. Read back through
+  # `__info__(:attributes)` instead, every lookup decoded all of them again, so
+  # finding one function cost as much as the whole module has.
+  defp object_table(env) do
+    functions = declared(env.module, :function)
+    fields = declared(env.module, :field)
+
+    quote do
+      def __object__(:functions), do: unquote(Macro.escape(functions))
+
+      def __object__(:fields), do: unquote(Macro.escape(fields))
+
+      def __object__(:name), do: unquote(Module.get_attribute(env.module, :dagger_object_name))
+
+      # Get a function definition.
+      def __object__(:function, name) do
+        Keyword.fetch!(__object__(:functions), name)
+      end
+    end
+  end
+
+  defp declared(module, attribute) do
+    module |> Module.get_attribute(attribute) |> Enum.reverse()
+  end
+
+  defp decoder(env) do
     if Module.get_attribute(env.module, :struct_declared) do
       required_fields = Module.get_attribute(env.module, :required_fields) || []
       optional_fields = Module.get_attribute(env.module, :optional_fields) || []
@@ -315,30 +326,8 @@ defmodule Dagger.Mod.Object do
       Module.register_attribute(__MODULE__, :function, accumulate: true, persist: true)
       Module.register_attribute(__MODULE__, :field, accumulate: true, persist: true)
 
+      @dagger_object_name unquote(name)
       @before_compile Dagger.Mod.Object
-
-      # Get an object name
-      def __object__(:name), do: unquote(name)
-
-      # List available function definitions.
-      def __object__(:functions) do
-        __MODULE__.__info__(:attributes)
-        |> Keyword.get_values(:function)
-        |> Enum.flat_map(& &1)
-      end
-
-      # Get a function definition.
-      def __object__(:function, name) do
-        __object__(:functions)
-        |> Keyword.fetch!(name)
-      end
-
-      # List available field definitions.
-      def __object__(:fields) do
-        __MODULE__.__info__(:attributes)
-        |> Keyword.get_values(:field)
-        |> Enum.flat_map(& &1)
-      end
     end
   end
 
