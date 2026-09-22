@@ -5,7 +5,7 @@ let elixirImage = "elixir:1.20.1-otp-29-alpine@sha256:f50894ff69b0d07b310fe9c97b
 # Prebuilt code generator image, published from codegen/ by
 # `dagger call codegen publish` and pinned by digest. `dagger call codegen pin`
 # rewrites this constant here and in mod.dang.
-let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.2.0@sha256:1b864a92e6d03e5ccb86a7516a349b4b164c9277455f3be575e82de5c04b958c"
+let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.2.1@sha256:4d06dabd5359aefa350e86760555251bedff04a00b4fd36b385ab2da11bc3234"
 
 # Mix's dependencies and build output live on a cache volume, outside the
 # source tree, so a rebuild picks up where the last one stopped.

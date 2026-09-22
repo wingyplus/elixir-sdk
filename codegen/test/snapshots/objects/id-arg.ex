@@ -17,7 +17,7 @@ defmodule Dagger.Client do
   Create a code generation result, given a directory containing the generated code.
   """
   @spec generated_code(t(), Dagger.Directory.t()) :: Dagger.GeneratedCode.t()
-  def generated_code(%__MODULE__{} = client, %Dagger.Directory{} = code) do
+  def generated_code(%__MODULE__{} = client, code) when is_struct(code) do
     query_builder =
       client.query_builder |> QB.select("generatedCode", code: Dagger.ID.id!(code))
 
