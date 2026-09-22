@@ -1,28 +1,27 @@
 defmodule Dagger.Mod.ID do
   @moduledoc false
 
-  # An id that has already been fetched from the engine.
+  # Fetching ids in bulk.
   #
   # Every object a registration hands to the API - a type, a function, an
   # object - goes by id, and `Dagger.ID.id!/1` fetches one with a round-trip of
-  # its own. Registration fetches them in bulk with `load!/2` instead, and
-  # passes this in place of the object, so that handing it over costs nothing.
+  # its own. Registration fetches them in bulk with `load!/2` instead, which
+  # keeps each id on its object, so that handing it over costs nothing.
   # A function's return value fetches its objects' ids in bulk with `load/1`.
 
   alias Dagger.Core.Client
   alias Dagger.Core.QueryBuilder, as: QB
 
-  defstruct [:id]
-
   @doc """
-  Fetch the ids of `resources` in a single round-trip, in order.
+  Fetch the ids of `resources` in a single round-trip, and return them in
+  order, each with its id set.
   """
   def load!(_dag, []), do: []
 
   def load!(%Dagger.Client{} = dag, resources) do
     selections = Enum.map(resources, &QB.select(&1.query_builder, "id"))
     {:ok, ids} = Client.execute_all(dag.client, selections)
-    Enum.map(ids, &%__MODULE__{id: &1})
+    Enum.zip_with(resources, ids, &%{&1 | id: &2})
   end
 
   @doc """
@@ -43,9 +42,5 @@ defmodule Dagger.Mod.ID do
         error -> {:halt, error}
       end
     end)
-  end
-
-  defimpl Dagger.ID do
-    def id!(%{id: id}), do: id
   end
 end

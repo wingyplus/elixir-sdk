@@ -16,6 +16,9 @@ defimpl Dagger.ID, for: Any do
   defmacro __deriving__(module, _struct, _opts) do
     quote do
       defimpl Dagger.ID, for: unquote(module) do
+        # Set when the id was fetched ahead of time, e.g. in bulk.
+        def id!(%{id: id}) when is_binary(id), do: id
+
         def id!(resource) do
           {:ok, id} = unquote(module).id(resource)
           id

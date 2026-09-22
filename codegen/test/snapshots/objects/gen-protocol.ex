@@ -11,9 +11,9 @@ defmodule Dagger.Module do
 
   @derive Dagger.ID
   @derive Dagger.Sync
-  defstruct [:query_builder, :client]
+  defstruct [:query_builder, :client, :id]
 
-  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
+  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t(), id: String.t() | nil}
 
   @doc """
   The dependencies of the module.

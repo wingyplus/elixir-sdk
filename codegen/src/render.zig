@@ -86,9 +86,9 @@ fn objectBody(a: Allocator, w: *Writer, mod: *const ModuleDef) !void {
     , .{ mod.kind, mod.gql_name });
     for (mod.derives) |d| try cat(w, &.{ "  @derive ", d, "\n" });
     try w.writeAll(
-        \\  defstruct [:query_builder, :client]
+        \\  defstruct [:query_builder, :client, :id]
         \\
-        \\  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
+        \\  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t(), id: String.t() | nil}
         \\
     );
     for (mod.functions) |*f| {

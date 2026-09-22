@@ -11,7 +11,7 @@ defmodule Dagger.WorkspaceModuleSetting do
 
   @derive Dagger.ID
 
-  defstruct [:query_builder, :client]
+  defstruct [:query_builder, :client, :id]
 
   @type t() :: %__MODULE__{}
 

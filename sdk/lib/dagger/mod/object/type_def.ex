@@ -8,10 +8,10 @@ defmodule Dagger.Mod.Object.TypeDef do
   @doc """
   Resolve the id of every type in `types`, and of every type nested in them.
 
-  Returns a map from type to `Dagger.Mod.ID`. A type is resolved once however
-  often it is used, and all the types at the same depth of nesting go in one
-  round-trip: a list needs the id of its element type, so element types are
-  resolved first.
+  Returns a map from type to its `Dagger.TypeDef`, with its id loaded. A type is
+  resolved once however often it is used, and all the types at the same depth of
+  nesting go in one round-trip: a list needs the id of its element type, so
+  element types are resolved first.
   """
   def resolve(dag, types) do
     types

@@ -9,9 +9,9 @@ defmodule Dagger.Directory do
   alias Dagger.Core.Client
   alias Dagger.Core.QueryBuilder, as: QB
 
-  defstruct [:query_builder, :client]
+  defstruct [:query_builder, :client, :id]
 
-  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t()}
+  @type t() :: %__MODULE__{query_builder: QB.t(), client: Client.t(), id: String.t() | nil}
 
   @doc """
   Return a snapshot with a directory added

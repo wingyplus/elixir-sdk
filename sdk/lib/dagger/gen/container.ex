@@ -11,7 +11,7 @@ defmodule Dagger.Container do
 
   @derive Dagger.ID
   @derive Dagger.Sync
-  defstruct [:query_builder, :client]
+  defstruct [:query_builder, :client, :id]
 
   @type t() :: %__MODULE__{}
 
