@@ -43,9 +43,9 @@ defmodule Dagger.Syncer do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Syncer do
-  def encode(syncer, opts) do
+defimpl JSON.Encoder, for: Dagger.Syncer do
+  def encode(syncer, encoder) do
     {:ok, id} = Dagger.Syncer.id(syncer)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

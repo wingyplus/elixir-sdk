@@ -35,9 +35,9 @@ defmodule Dagger.Test do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Test do
-  def encode(test, opts) do
+defimpl JSON.Encoder, for: Dagger.Test do
+  def encode(test, encoder) do
     {:ok, id} = Dagger.Test.id(test)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

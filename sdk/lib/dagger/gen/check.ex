@@ -146,9 +146,9 @@ defmodule Dagger.Check do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Check do
-  def encode(check, opts) do
+defimpl JSON.Encoder, for: Dagger.Check do
+  def encode(check, encoder) do
     {:ok, id} = Dagger.Check.id(check)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

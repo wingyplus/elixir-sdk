@@ -77,9 +77,9 @@ defmodule Dagger.LLMMessage do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.LLMMessage do
-  def encode(llm_message, opts) do
+defimpl JSON.Encoder, for: Dagger.LLMMessage do
+  def encode(llm_message, encoder) do
     {:ok, id} = Dagger.LLMMessage.id(llm_message)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

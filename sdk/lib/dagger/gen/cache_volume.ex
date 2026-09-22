@@ -27,9 +27,9 @@ defmodule Dagger.CacheVolume do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.CacheVolume do
-  def encode(cache_volume, opts) do
+defimpl JSON.Encoder, for: Dagger.CacheVolume do
+  def encode(cache_volume, encoder) do
     {:ok, id} = Dagger.CacheVolume.id(cache_volume)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

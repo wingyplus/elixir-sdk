@@ -684,9 +684,9 @@ defmodule Dagger.Binding do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Binding do
-  def encode(binding, opts) do
+defimpl JSON.Encoder, for: Dagger.Binding do
+  def encode(binding, encoder) do
     {:ok, id} = Dagger.Binding.id(binding)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

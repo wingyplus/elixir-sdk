@@ -60,9 +60,9 @@ defmodule Dagger.ScalarTypeDef do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.ScalarTypeDef do
-  def encode(scalar_type_def, opts) do
+defimpl JSON.Encoder, for: Dagger.ScalarTypeDef do
+  def encode(scalar_type_def, encoder) do
     {:ok, id} = Dagger.ScalarTypeDef.id(scalar_type_def)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

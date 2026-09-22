@@ -8,7 +8,7 @@ defmodule Dagger.MixProject do
     [
       app: :dagger,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: package(),
@@ -26,11 +26,10 @@ defmodule Dagger.MixProject do
 
   defp deps do
     [
-      {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.0"},
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:req, "~> 0.6", optional: true}
+      {:req, "~> 0.8.0-rc.0", optional: true}
     ]
   end
 

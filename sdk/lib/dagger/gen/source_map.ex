@@ -82,9 +82,9 @@ defmodule Dagger.SourceMap do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.SourceMap do
-  def encode(source_map, opts) do
+defimpl JSON.Encoder, for: Dagger.SourceMap do
+  def encode(source_map, encoder) do
     {:ok, id} = Dagger.SourceMap.id(source_map)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

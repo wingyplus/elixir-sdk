@@ -635,9 +635,9 @@ defmodule Dagger.Client do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Client do
-  def encode(client, opts) do
+defimpl JSON.Encoder, for: Dagger.Client do
+  def encode(client, encoder) do
     {:ok, id} = Dagger.Client.id(client)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

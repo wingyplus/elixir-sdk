@@ -71,9 +71,9 @@ defmodule Dagger.WorkspaceModuleSetting do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.WorkspaceModuleSetting do
-  def encode(workspace_module_setting, opts) do
+defimpl JSON.Encoder, for: Dagger.WorkspaceModuleSetting do
+  def encode(workspace_module_setting, encoder) do
     {:ok, id} = Dagger.WorkspaceModuleSetting.id(workspace_module_setting)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

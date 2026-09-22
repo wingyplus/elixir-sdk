@@ -94,10 +94,9 @@ defmodule Dagger.Mod.ErrorReport do
   turn the error being reported into a crash.
   """
   def encode_value(value) do
-    case Jason.encode(value) do
-      {:ok, json} -> json
-      {:error, _} -> Jason.encode!(inspect(value))
-    end
+    JSON.encode!(value)
+  rescue
+    _ in [Protocol.UndefinedError, ErlangError] -> JSON.encode!(inspect(value))
   end
 
   defp exception_values(exception, stacktrace) do

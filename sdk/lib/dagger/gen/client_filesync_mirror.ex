@@ -27,9 +27,9 @@ defmodule Dagger.ClientFilesyncMirror do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.ClientFilesyncMirror do
-  def encode(client_filesync_mirror, opts) do
+defimpl JSON.Encoder, for: Dagger.ClientFilesyncMirror do
+  def encode(client_filesync_mirror, encoder) do
     {:ok, id} = Dagger.ClientFilesyncMirror.id(client_filesync_mirror)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

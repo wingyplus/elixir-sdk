@@ -107,9 +107,9 @@ defmodule Dagger.GeneratorGroup do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.GeneratorGroup do
-  def encode(generator_group, opts) do
+defimpl JSON.Encoder, for: Dagger.GeneratorGroup do
+  def encode(generator_group, encoder) do
     {:ok, id} = Dagger.GeneratorGroup.id(generator_group)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

@@ -143,9 +143,9 @@ defmodule Dagger.Host do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.Host do
-  def encode(host, opts) do
+defimpl JSON.Encoder, for: Dagger.Host do
+  def encode(host, encoder) do
     {:ok, id} = Dagger.Host.id(host)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end

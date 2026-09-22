@@ -82,9 +82,9 @@ defmodule Dagger.LLMTokenUsage do
   end
 end
 
-defimpl Jason.Encoder, for: Dagger.LLMTokenUsage do
-  def encode(llm_token_usage, opts) do
+defimpl JSON.Encoder, for: Dagger.LLMTokenUsage do
+  def encode(llm_token_usage, encoder) do
     {:ok, id} = Dagger.LLMTokenUsage.id(llm_token_usage)
-    Jason.Encode.string(id, opts)
+    encoder.(id, encoder)
   end
 end
