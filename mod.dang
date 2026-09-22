@@ -1,7 +1,7 @@
 # Prebuilt code generator image, published from codegen/ by
 # `dagger call codegen publish` and pinned by digest. `dagger call codegen pin`
 # rewrites this constant here and in runtime/main.dang.
-let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.2.0@sha256:1b864a92e6d03e5ccb86a7516a349b4b164c9277455f3be575e82de5c04b958c"
+let codegenImage = "docker.io/wingyplus/elixir-sdk-codegen:0.2.2@sha256:dbe84db94f7509b6385dcdafa0989108e8703e76dd7fd7cc117e8f489ca03ab1"
 
 """
 A Dagger module that uses the Elixir SDK.
