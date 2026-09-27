@@ -67,13 +67,12 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-  | Option          | Description                                                            |
-  | --------------- | ---------------------------------------------------------------------- |
-  | `:doc`          | The argument description.                                              |
-  | `:default`      | The value used when the argument is not given.                         |
-  | `:default_path` | The path to load a `Dagger.Directory` or `Dagger.File` from by default. |
-  | `:ignore`       | Patterns to exclude from a `Dagger.Directory` argument.                |
-  | `:deprecated`   | Mark the argument as deprecated, with a reason.                        |
+  * `:doc` - the argument description.
+  * `:default` - the value used when the argument is not given.
+  * `:default_path` - the path to load a `Dagger.Directory` or `Dagger.File`
+    from by default.
+  * `:ignore` - patterns to exclude from a `Dagger.Directory` argument.
+  * `:deprecated` - mark the argument as deprecated, with a reason.
 
   ## Optional arguments
 
@@ -134,12 +133,15 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-  | Flag        | Description                                                                                                                                                |
-  | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `:check`    | Run the function with `dagger check`. It must not have required arguments.                                                                                 |
-  | `:generate` | Run the function with `dagger generate` and `dagger check`. It must return `Dagger.Changeset.t()` and not have required arguments.                         |
-  | `:up`       | Start the returned service with `dagger up`. It must return `Dagger.Service.t()` and not have required arguments.                                          |
-  | `:agent`    | Use the function as agent middleware with `dagger agent`. It must return `Dagger.LLM.t()` and take a single required `Dagger.LLM.t()` argument.            |
+  * `:check` - run the function with `dagger check`. It must not have required
+    arguments.
+  * `:generate` - run the function with `dagger generate` and `dagger check`. It
+    must return `Dagger.Changeset.t()` and not have required arguments.
+  * `:up` - start the returned service with `dagger up`. It must return
+    `Dagger.Service.t()` and not have required arguments.
+  * `:agent` - use the function as agent middleware with `dagger agent`. It must
+    return `Dagger.LLM.t()` and take a single required `Dagger.LLM.t()`
+    argument.
 
   The constructor `init` cannot have a flag.
 
@@ -155,12 +157,11 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-  | Value              | Description                                           |
-  | ------------------ | ----------------------------------------------------- |
-  | `:default`         | Use the engine default.                               |
-  | `:never`           | Never cache the result.                               |
-  | `:per_session`     | Cache the result for the duration of a session.       |
-  | `{:ttl, duration}` | Cache the result for `duration`, such as `"30s"`, `"10m"` or `"1h30m"`, between 1 second and 7 days. |
+  * `:default` - use the engine default.
+  * `:never` - never cache the result.
+  * `:per_session` - cache the result for the duration of a session.
+  * `{:ttl, duration}` - cache the result for `duration`, such as `"30s"`,
+    `"10m"` or `"1h30m"`, between 1 second and 7 days.
 
   See `defn/4` for more details on flags and options.
 

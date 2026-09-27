@@ -61,10 +61,8 @@ defmodule Dagger.Mod.Enum do
           critical: [doc: "Critical severity."]
         ]
 
-  | Option        | Description                                       |
-  | ------------- | ------------------------------------------------- |
-  | `:doc`        | The member description.                           |
-  | `:deprecated` | Mark the member as deprecated, with a reason.     |
+  * `:doc` - the member description.
+  * `:deprecated` - mark the member as deprecated, with a reason.
 
   ## Member values
 
