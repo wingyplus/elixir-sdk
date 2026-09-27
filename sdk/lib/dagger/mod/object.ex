@@ -1,31 +1,35 @@
 defmodule Dagger.Mod.Object do
   @moduledoc """
-  Declare a module as an object type.
+  Write a Dagger module object in Elixir.
+
+  An object groups functions that can be called with `dagger call`. Each
+  Dagger module has at least one object, named after the module.
 
   ## Declare an object
 
-  Add `use Dagger.Mod.Object` to the Elixir module that want to be a
-  Dagger module and give a name through `:name` configuration:
+  Add `use Dagger.Mod.Object` to a module and give the object a name:
 
       defmodule Potato do
-        use Dagger.Mod.Object, name: "Potato"
+        @moduledoc \"""
+        A potato module.
+        \"""
 
-        # ...
+        use Dagger.Mod.Object, name: "Potato"
       end
 
-  The module also support documentation by using Elixir standard documentation,
-  `@moduledoc`.
+  The `@moduledoc` becomes the object description shown to users.
 
   ## Declare a function
 
-  The module provides a `defn`, a macro for declare a function.
-  Let's declare a new function named `echo` that accepts a `name` as a string
-  and return a container that echo a name in the module `Potato` from the previous
-  section:
+  Use `defn` to declare a function. Arguments are written as a keyword list of
+  names and types, followed by the return type:
 
       defmodule Potato do
         use Dagger.Mod.Object, name: "Potato"
 
+        @doc \"""
+        Print a name.
+        \"""
         defn echo(name: String.t()) :: Dagger.Container.t() do
           dag()
           |> Dagger.Client.container()
@@ -34,146 +38,136 @@ defmodule Dagger.Mod.Object do
         end
       end
 
-  From the example above, the `defn` allows you to annotate a type to function
-  arguments and return type by using Elixir Typespec. The type will convert to
-  a Dagger type when registering a module.
+  The `@doc` becomes the function description, and `dag/0` gives you the
+  Dagger client to call the Dagger API with.
 
-  The supported types are:
+  The function is then available from the command line:
 
-  1. `integer()` for an integer type.
-  2. `float()` for a float type.
-  3. `boolean()` for a boolean type.
-  4. `String.t()` or `binary()` for a string type.
-  5. `list(type)` or `[type]` for a list type.
-  6. `type | nil` for optional type.
-  7. Any type that generated under `Dagger` namespace (`Dagger.Container.t()`,
-     `Dagger.Directory.t()`, etc.).
-  8. Any module that declares `use Dagger.Mod.Object` or `use Dagger.Mod.Enum`.
+      dagger call echo --name=potato
 
-  The function also support documentation by using Elixir standard documentation,
-  `@doc`.
+  ## Supported types
 
-  A function may take the object itself as its first argument by naming it
-  `self`:
+  * `integer()` - an integer.
+  * `float()` - a float.
+  * `boolean()` - a boolean.
+  * `String.t()` or `binary()` - a string.
+  * `list(type)` or `[type]` - a list of `type`.
+  * `type | nil` - an optional `type`.
+  * Any type from the Dagger API, such as `Dagger.Container.t()` or
+    `Dagger.Directory.t()`.
+  * Any module that uses `Dagger.Mod.Object` or `Dagger.Mod.Enum`, such as
+    `Potato.t()`.
 
-      defn with_name(self, name: String.t()) :: __MODULE__.t() do
-        %__MODULE__{self | name: name}
-      end
+  ## Argument options
 
-  ## Configure a function
-
-  `defn` accepts an optional flag and an optional keyword list of options
-  after the return type, in that order:
-
-      defn lint() :: Dagger.Void.t(), :check do
-        # ...
-      end
-
-      defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(),
-             :check,
-             cache: {:ttl, "30s"} do
-        # ...
-      end
-
-      defn version() :: String.t(), cache: :never do
-        # ...
-      end
-
-  The flag is a bare atom, never a list, because a function declares at most
-  one: `:check`, `:generate`, `:up` and `:agent` each run the function a
-  different way, so a function is one of them, never several at once.
-
-  The supported flags are:
-
-  | Flag        | Description                                                                                                                                                                     |
-  | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | `:check`    | Discover and run this function with `dagger check`. Takes no required arguments.                                                                                                |
-  | `:generate` | Register this function as a generator, run by `dagger generate` and, unless `--no-generate`, by `dagger check`. Returns `Dagger.Changeset.t()` and takes no required arguments. |
-  | `:up`       | Start the service this function returns with `dagger up`. Returns `Dagger.Service.t()` and takes no required arguments.                                                         |
-  | `:agent`    | Register this function as agent middleware, composed by `dagger agent`. Returns `Dagger.LLM.t()` and requires a single `Dagger.LLM.t()` argument, the base.                     |
-
-  The supported options are:
-
-  | Option   | Value              | Description                                            |
-  | -------- | ------------------ | ------------------------------------------------------ |
-  | `cache:` | `:default`         | Cache the result with the engine default policy.       |
-  | `cache:` | `:never`           | Never cache the result.                                |
-  | `cache:` | `:per_session`     | Cache the result for the duration of a session.        |
-  | `cache:` | `{:ttl, duration}` | Cache the result for `duration`, e.g. `{:ttl, "30s"}`. |
-
-  A cache `duration` is a duration string such as `"30s"`, `"10m"` or `"1h30m"`.
-  The engine rejects a value outside 1 second to 7 days.
-
-  See `defn/4` for the full grammar.
-
-  ## Declare a constructor
-
-  A function named `init` becomes the object constructor. It is called when the
-  object is first created, and its return value becomes the object:
-
-      defmodule Potato do
-        use Dagger.Mod.Object, name: "Potato"
-
-        object do
-          field(:name, String.t())
-        end
-
-        defn init(name: {String.t(), default: "potato"}) :: __MODULE__.t() do
-          %__MODULE__{name: name}
-        end
-      end
-
-  No flag can be used on `init`.
-
-  ## Declare fields
-
-  Use `object/1` and `field/3` to declare an object that carries state between
-  function calls:
-
-      object do
-        field(:name, String.t())
-        field(:size, integer() | nil)
-      end
-
-  A field typed as optional (`type | nil`) is not enforced when building the
-  struct. `field/3` accepts `:doc` and `:deprecated`.
-
-  ## Declare argument options
-
-  An argument may carry options by wrapping its type in a tuple:
+  An argument can carry options by wrapping its type in a tuple:
 
       defn entries(dir: {Dagger.Directory.t(), doc: "The directory.", default_path: "/"}) ::
              [String.t()] do
         # ...
       end
 
-  The supported argument options are `:doc`, `:default`, `:default_path`,
-  `:ignore` and `:deprecated`.
+  | Option          | Description                                                            |
+  | --------------- | ---------------------------------------------------------------------- |
+  | `:doc`          | The argument description.                                              |
+  | `:default`      | The value used when the argument is not given.                         |
+  | `:default_path` | The path to load a `Dagger.Directory` or `Dagger.File` from by default. |
+  | `:ignore`       | Patterns to exclude from a `Dagger.Directory` argument.                |
+  | `:deprecated`   | Mark the argument as deprecated, with a reason.                        |
 
-  ## Argument defaults
+  ## Optional arguments
 
-  An argument that the engine may leave out is also optional to an Elixir
-  caller. An argument that declares a `:default` takes it as its Elixir
-  default, and an argument typed as optional (`type | nil`) defaults to `nil`:
+  An argument with a `:default`, or typed as optional (`type | nil`), can be
+  left out, both from the command line and when calling the function from
+  Elixir:
 
-      defn echo(message: String.t() | nil, greeting: {String.t(), default: "Hello"}) ::
+      defn greet(name: String.t() | nil, greeting: {String.t(), default: "Hello"}) ::
              String.t() do
-        # compiles to `def echo(message \\\\ nil, greeting \\\\ "Hello")`
-        "\#{greeting}, \#{message}"
+        "\#{greeting}, \#{name}"
       end
 
-      echo()
+      greet()
       #=> "Hello, "
 
-  Defaults follow Elixir's own rules, so an optional argument declared before a
-  required one shifts the meaning of the shorter arities - `defn f(a: String.t()
-  | nil, b: String.t())` compiles to `def f(a \\\\ nil, b)`, whose `f/1` takes
-  `b`. Declare required arguments first to avoid it.
+  Declare required arguments before optional ones. Like any Elixir default
+  argument, an optional argument placed before a required one changes which
+  argument the shorter call fills in.
+
+  ## Keep state in an object
+
+  Use `object/1` and `field/3` to declare fields that are kept between
+  function calls:
+
+      defmodule Potato do
+        use Dagger.Mod.Object, name: "Potato"
+
+        object do
+          field(:name, String.t(), doc: "The potato name.")
+          field(:size, integer() | nil)
+        end
+      end
+
+  A field typed as optional (`type | nil`) does not have to be set.
+
+  A function can read and update the object by taking `self` as its first
+  argument:
+
+      defn with_name(self, name: String.t()) :: __MODULE__.t() do
+        %__MODULE__{self | name: name}
+      end
+
+  ## Declare a constructor
+
+  A function named `init` is the constructor. Its arguments become the
+  arguments of the module, and it returns the object:
+
+      defn init(name: {String.t(), default: "potato"}) :: __MODULE__.t() do
+        %__MODULE__{name: name}
+      end
+
+  ## Function flags
+
+  A function can have one flag, written after the return type, to be run by a
+  specific `dagger` command:
+
+      defn lint() :: Dagger.Void.t(), :check do
+        # ...
+      end
+
+  | Flag        | Description                                                                                                                                                |
+  | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `:check`    | Run the function with `dagger check`. It must not have required arguments.                                                                                 |
+  | `:generate` | Run the function with `dagger generate` and `dagger check`. It must return `Dagger.Changeset.t()` and not have required arguments.                         |
+  | `:up`       | Start the returned service with `dagger up`. It must return `Dagger.Service.t()` and not have required arguments.                                          |
+  | `:agent`    | Use the function as agent middleware with `dagger agent`. It must return `Dagger.LLM.t()` and take a single required `Dagger.LLM.t()` argument.            |
+
+  The constructor `init` cannot have a flag.
+
+  ## Function caching
+
+  Use the `:cache` option to control how long a function result is cached:
+
+      defn version() :: String.t(), cache: :never do
+        # ...
+      end
+
+      defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(), :check, cache: {:ttl, "30s"} do
+        # ...
+      end
+
+  | Value              | Description                                           |
+  | ------------------ | ----------------------------------------------------- |
+  | `:default`         | Use the engine default.                               |
+  | `:never`           | Never cache the result.                               |
+  | `:per_session`     | Cache the result for the duration of a session.       |
+  | `{:ttl, duration}` | Cache the result for `duration`, such as `"30s"`, `"10m"` or `"1h30m"`, between 1 second and 7 days. |
+
+  See `defn/4` for more details on flags and options.
 
   ## Deprecation
 
-  A module, function, field, argument or enum member can be marked as
-  deprecated. Modules and functions use the standard Elixir annotations:
+  Mark a module or a function as deprecated with the standard Elixir
+  annotations:
 
       @moduledoc deprecated: "Use `NewPotato` instead."
 
@@ -182,8 +176,7 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-  A field, an argument and an enum member each use their own `:deprecated`
-  option:
+  Mark a field or an argument as deprecated with the `:deprecated` option:
 
       field(:name, String.t(), deprecated: "Use `:title` instead.")
 
@@ -191,9 +184,7 @@ defmodule Dagger.Mod.Object do
         # ...
       end
 
-      use Dagger.Mod.Enum,
-        name: "Severity",
-        values: [:high, low: [deprecated: "Use `high` instead."]]
+  To deprecate an enum member, see `Dagger.Mod.Enum`.
   """
 
   @type function_name() :: atom()
