@@ -55,8 +55,11 @@ defmodule Dagger do
 
   ## Dagger modules
 
-  You can also write Dagger modules in Elixir. See `Dagger.Mod.Object` to
-  get started.
+  You can also write Dagger modules in Elixir:
+
+  * `Dagger.Mod.Object` - declare an object and the functions it provides.
+  * `Dagger.Mod.Enum` - declare an enum to use as a function argument or
+    return type.
   """
 
   @doc """

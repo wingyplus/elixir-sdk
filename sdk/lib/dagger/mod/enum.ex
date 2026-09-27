@@ -1,23 +1,83 @@
 defmodule Dagger.Mod.Enum do
   @moduledoc """
-  Declare a module as an enum type.
+  Write a Dagger module enum in Elixir.
 
-  A member is spelled `key`, `key: options`, `key: value` or
-  `key: {value, options}`. The key is the member's identity: it is the atom the
-  Elixir side works with, the name the engine registers the member under, and
-  the string the engine hands back when the member is passed to a function. The
-  value is the wire value the member declares - what a dependent SDK generates
-  its constant from - and defaults to the key.
+  An enum is a type that only accepts one value from a fixed list, such as a
+  severity level or a log format.
 
-  A member carrying options accepts `:doc` and `:deprecated`:
+  ## Declare an enum
+
+  Add `use Dagger.Mod.Enum` to a module, give the enum a name and list its
+  members in `:values`:
+
+      defmodule Severity do
+        @moduledoc \"""
+        A severity level.
+        \"""
+
+        use Dagger.Mod.Enum, name: "Severity", values: [:low, :medium, :high]
+      end
+
+  The `@moduledoc` becomes the enum description shown to users.
+
+  ## Use an enum
+
+  An enum can be used as an argument or a return type of a function declared
+  with `Dagger.Mod.Object`, by its `t()` type:
+
+      defmodule Scanner do
+        use Dagger.Mod.Object, name: "Scanner"
+
+        defn scan(severity: Severity.t()) :: String.t() do
+          case severity do
+            :low -> "only report low issues"
+            :medium -> "only report medium issues"
+            :high -> "only report high issues"
+          end
+        end
+      end
+
+  Each member is an atom in Elixir, so the function receives `:low`,
+  `:medium` or `:high`, and returns an enum by returning one of them. From the
+  command line, a member is given by name:
+
+      dagger call scan --severity=high
+
+  The module also defines a function for each member, which returns it:
+
+      Severity.high()
+      #=> :high
+
+  ## Member options
+
+  A member can carry options by writing it as a keyword:
 
       use Dagger.Mod.Enum,
         name: "Severity",
         values: [
-          low: [doc: "Low severity."],
-          medium: [deprecated: "Use `high` instead."],
-          high: {"HIGH", doc: "High severity.", deprecated: "Use `critical` instead."}
+          :low,
+          medium: [doc: "Medium severity."],
+          high: [doc: "High severity.", deprecated: "Use `critical` instead."],
+          critical: [doc: "Critical severity."]
         ]
+
+  * `:doc` - the member description.
+  * `:deprecated` - mark the member as deprecated, with a reason.
+
+  ## Member values
+
+  By default, a member's value is its name. To give a member a different
+  value, write the value as a string, with or without options:
+
+      use Dagger.Mod.Enum,
+        name: "Severity",
+        values: [
+          low: "LOW",
+          high: {"HIGH", doc: "High severity."}
+        ]
+
+  The member is still `:low` or `:high` in Elixir and on the command line.
+  The value is what other Dagger modules see when they use this enum.
   """
 
   defmacro __using__(opts) do
