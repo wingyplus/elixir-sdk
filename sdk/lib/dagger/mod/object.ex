@@ -124,46 +124,17 @@ defmodule Dagger.Mod.Object do
         %__MODULE__{name: name}
       end
 
-  ## Function flags
+  ## Function flags and options
 
-  A function can have one flag, written after the return type, to be run by a
-  specific `dagger` command:
+  A function can also take a flag, such as `:check` to run it with
+  `dagger check`, and options, such as `:cache` to control how its result is
+  cached:
 
-      defn lint() :: Dagger.Void.t(), :check do
+      defn lint() :: Dagger.Void.t(), :check, cache: :never do
         # ...
       end
 
-  * `:check` - run the function with `dagger check`. It must not have required
-    arguments.
-  * `:generate` - run the function with `dagger generate` and `dagger check`. It
-    must return `Dagger.Changeset.t()` and not have required arguments.
-  * `:up` - start the returned service with `dagger up`. It must return
-    `Dagger.Service.t()` and not have required arguments.
-  * `:agent` - use the function as agent middleware with `dagger agent`. It must
-    return `Dagger.LLM.t()` and take a single required `Dagger.LLM.t()`
-    argument.
-
-  The constructor `init` cannot have a flag.
-
-  ## Function caching
-
-  Use the `:cache` option to control how long a function result is cached:
-
-      defn version() :: String.t(), cache: :never do
-        # ...
-      end
-
-      defn build(source: Dagger.Directory.t()) :: Dagger.Container.t(), :check, cache: {:ttl, "30s"} do
-        # ...
-      end
-
-  * `:default` - use the engine default.
-  * `:never` - never cache the result.
-  * `:per_session` - cache the result for the duration of a session.
-  * `{:ttl, duration}` - cache the result for `duration`, such as `"30s"`,
-    `"10m"` or `"1h30m"`, between 1 second and 7 days.
-
-  See `defn/4` for more details on flags and options.
+  See `defn/4` for the available flags and options.
 
   ## Deprecation
 
