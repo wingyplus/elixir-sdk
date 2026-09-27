@@ -2,24 +2,21 @@ defmodule Dagger do
   @moduledoc """
   The [Dagger](https://dagger.io/) SDK for Elixir.
 
-  ## Prerequisite
+  Use it to build, test, and ship your software in containers, written
+  entirely in Elixir.
 
-  The SDK depends on `docker` and `dagger` commands, please make sure those
-  commands are presents on your `PATH`.
+  ## Requirements
 
-  ## Getting Started
+  Make sure `docker` and `dagger` are installed and available on your `PATH`.
 
-  Let's try this script below
+  ## Getting started
+
+  Save the script below as `hello.exs` and run it with `elixir hello.exs`:
 
       Mix.install([:dagger])
 
-      # 1
-      Application.ensure_all_started(:inets)
-
-      # 2
       {:ok, client} = Dagger.connect()
 
-      # 3
       {:ok, output} =
         client
         |> Dagger.Client.container()
@@ -29,45 +26,37 @@ defmodule Dagger do
 
       IO.puts(output)
 
-      # 4
       Dagger.close(client)
 
-  Here's what script do:
+  The script:
 
-  1. Start `:inets` application in order to use `:httpc` as a HTTP client.
-  2. Connecting to the Dagger Engine with `Dagger.connect/1`.
-  3. Create a new container from `hexpm/elixir:1.14.4-erlang-25.3-debian-buster-20230227-slim`
-     and calling a command `elixir` with flag `--version`, get the standard
-     output from latest command and printing it to standard output.
-  4. Close the connection.
+  1. Connects to the Dagger Engine with `connect/1`.
+  2. Starts a container from an Elixir image.
+  3. Runs `elixir --version` inside it and prints the output.
+  4. Closes the connection with `close/1`.
 
-  ## Accessing GraphQL API
+  To have the connection closed for you, use `with_connection/2`:
 
-  In case you want to execute GraphQL directly, the SDK provides `Dagger.Core.Client`,
-  the client interface to the Dagger engine. The module provides 2 APIs for you:
+      Dagger.with_connection(fn client ->
+        client
+        |> Dagger.Client.container()
+        |> Dagger.Container.from("alpine")
+        |> Dagger.Container.with_exec(["echo", "hello"])
+        |> Dagger.Container.stdout()
+      end)
 
-  1. `Dagger.Core.Client.query/2` - to execute a GraphQL query to the Dagger engine.
-  2. `Dagger.Core.Client.execute/2` - to execute a GraphQL query that produces by `Dagger.Core.QueryBuilder`.
+  ## Using Req as the HTTP client
 
-  By default, every object types (`Dagger.Container`, `Dagger.Directory`, etc.) has
-  a field `client` which is an instance of `Dagger.Core.Client`, you can use that instance
-  from the object type without initialize connection by yourself.
-
-  Please note that this API is an internal API, it may break from version to version. So
-  please use with cautions.
-
-  ## GraphQL Client adapter
-
-  The SDK ship using Erlang `:httpc` as a backend by default. You can switch to `Req` by 
-  add `:req` as a dependency and configure HTTP client by adding this line below to your 
-  `config/config.exs`:
+  The SDK uses Erlang's built-in `:httpc` by default. To use
+  [Req](https://hex.pm/packages/req) instead, add `:req` to your dependencies
+  and set this in `config/config.exs`:
 
       config :dagger, client: Dagger.Core.GraphQLClient.Req
 
-  ## Module support
+  ## Dagger modules
 
-  The SDK also support Dagger Module, please see `Dagger.Mod.Object` for more
-  details.
+  You can also write Dagger modules in Elixir. See `Dagger.Mod.Object` to
+  get started.
   """
 
   @doc """
